@@ -1,0 +1,32 @@
+[package]
+name = "matrix-tui"
+version = "0.0.0"
+authors = ["Xithrius <xithrius@gmail.com>"]
+edition = "2024"
+rust-version = "1.85.0"
+description = "Matrix in the terminal."
+repository = "https://github.com/Xithrius/matrix-tui"
+license = "GPL-3.0"
+keywords = ["tui", "matrix"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+tui = { package = "ratatui", version = "0.30.0", default-features = false, features = [
+    "crossterm",
+    "serde",
+] }
+rustyline = "15.0.0"
+color-eyre = "0.6.5"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+fuzzy-matcher = "0.3.7"
+
+[profile.dev]
+lto = "off"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
