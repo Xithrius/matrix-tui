@@ -1,4 +1,2 @@
-postgres-data/*
-synapse-data/*
-!postgres-data/.DO_NOT_DELETE
-!synapse-data/.DO_NOT_DELETE
+!db-config.env
+!synapse-config.env
