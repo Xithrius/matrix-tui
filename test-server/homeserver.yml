@@ -1,4 +1,4 @@
-server_name: "matrix.kshpin.ai"
+server_name: "matrix.testhost.org"
 pid_file: /data/homeserver.pid
 
 listeners:
@@ -21,7 +21,7 @@ database:
     cp_min: 5
     cp_max: 10
 
-log_config: "/data/log.config"
+log_config: "/config/log.config"
 
 media_store_path: /data/media_store
 
@@ -37,6 +37,15 @@ signing_key_path: "/data/signing.key"
 trusted_key_servers:
   - server_name: "matrix.org"
 
-enable_registration: false
+enable_registration: true
+enable_registration_without_verification: true
+
+password_config:
+  enabled: true
+  minimum_length: 1
+  require_digit: false
+  require_symbol: false
+  require_uppercase: false
+  require_lowercase: false
 
 suppress_key_server_warning: true
