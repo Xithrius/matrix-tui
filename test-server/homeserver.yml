@@ -1,0 +1,42 @@
+server_name: "matrix.kshpin.ai"
+pid_file: /data/homeserver.pid
+
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    resources:
+      - names: [client, federation]
+        compress: false
+
+database:
+  name: psycopg2
+  args:
+    user: matrix
+    password: netsiroantesoalutioneynuyonmeisoralnutyforaemsiotnufyoranestioantuforanetsiorantufroantesioantufraoitnesriao
+    database: synapse
+    host: db
+    port: 5432
+    cp_min: 5
+    cp_max: 10
+
+log_config: "/data/log.config"
+
+media_store_path: /data/media_store
+
+registration_shared_secret: "CHANGE_ME_TO_A_RANDOM_SECRET"
+
+report_stats: true
+
+macaroon_secret_key: "CHANGE_ME_TO_A_RANDOM_SECRET"
+form_secret: "CHANGE_ME_TO_A_RANDOM_SECRET"
+
+signing_key_path: "/data/signing.key"
+
+trusted_key_servers:
+  - server_name: "matrix.org"
+
+enable_registration: false
+
+suppress_key_server_warning: true

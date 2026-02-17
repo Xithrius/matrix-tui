@@ -1,0 +1,37 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./db-config.env
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+    networks:
+      - matrix-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U appuser -d appdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  server:
+    image: matrixdotorg/synapse:v1.147.1
+    restart: unless-stopped
+    ports:
+      - "8008:8008"
+    volumes:
+      - ./homeserver.yml:/data/homeserver.yaml:ro
+      - ./synapse-data:/data
+    env_file:
+      - ./synapse-config.env
+    networks:
+      - matrix-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  matrix-network:
+    driver: bridge
