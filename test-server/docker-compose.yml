@@ -1,0 +1,55 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./db-config.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - matrix-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matrix -d synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  server:
+    image: matrixdotorg/synapse:v1.147.1
+    restart: unless-stopped
+    user: "root:root"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown 991:991 /data && exec /start.py run"]
+    ports:
+      - "8008:8008"
+    volumes:
+      - synapse_data:/data
+      - ./homeserver.yml:/config/homeserver.yaml:ro
+      - ./log.config:/config/log.config:ro
+    environment:
+      - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
+    env_file:
+      - ./synapse-config.env
+    networks:
+      - matrix-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+  element:
+    image: vectorim/element-web:latest
+    restart: unless-stopped
+    ports:
+      - "8009:80"
+    volumes:
+      - ./element-config.json:/app/config.json:ro
+
+networks:
+  matrix-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  synapse_data:

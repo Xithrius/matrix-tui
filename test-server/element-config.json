@@ -1,0 +1,15 @@
+{
+    "default_server_config": {
+        "m.homeserver": {
+            "base_url": "http://localhost:8008",
+            "server_name": "matrix.testhost.org"
+        }
+    },
+    "brand": "Element",
+    "disable_custom_urls": false,
+    "disable_guests": true,
+    "disable_3pid_login": true,
+    "setting_defaults": {
+        "passwordComplexity": false
+    }
+}
