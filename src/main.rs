@@ -1,10 +1,29 @@
 #![forbid(unsafe_code)]
 #![warn(clippy::nursery, clippy::pedantic)]
 
+use clap::Parser;
 use color_eyre::Result;
 
+use crate::{app::App, cli::Cli, config::core::CoreConfig};
+
+mod app;
+mod cli;
+mod config;
+mod event;
+mod logging;
+mod ui;
+
 fn main() -> Result<()> {
-    println!("Hello world");
+    color_eyre::install()?;
+    crate::logging::init()?;
+
+    let args = Cli::parse();
+    let config = CoreConfig::new(args.frame_rate)?;
+
+    let terminal = tui::init();
+    let app = App::new(&config);
+    app.run(terminal)?;
+    tui::restore();
 
     Ok(())
 }
