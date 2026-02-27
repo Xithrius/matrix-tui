@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use crossbeam_channel::{Sender, unbounded};
+use tokio::sync::mpsc::{Sender, channel};
 use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
@@ -8,8 +8,8 @@ use tui::{
 };
 
 use crate::{
-    config::core::CoreConfig,
-    event::{Event, EventHandler, InternalEvent, Mode},
+    config::CoreConfig,
+    events::{Event, EventHandler, InternalEvent, Mode},
     ui::{
         component::Component, header::HeaderWidget, input::InputWidget, messages::MessagesWidget,
     },
@@ -41,7 +41,7 @@ pub struct App {
 
 impl App {
     pub fn new(config: &CoreConfig) -> Self {
-        let (event_tx, event_rx) = unbounded();
+        let (event_tx, event_rx) = channel(100);
 
         let ui = Ui::new(event_tx.clone());
 
@@ -55,31 +55,36 @@ impl App {
         }
     }
 
-    pub fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
+    pub async fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
             terminal.draw(|frame| self.draw(frame, frame.area()))?;
-            self.handle_events()?;
+            self.handle_events().await?;
         }
 
         Ok(())
     }
 
-    pub fn handle_events(&mut self) -> Result<()> {
-        match self.events.next()? {
+    pub async fn handle_events(&mut self) -> Result<()> {
+        let Some(event) = self.events.next().await else {
+            return Ok(());
+        };
+
+        match event {
             Event::Tick => self.tick(),
             Event::Crossterm(event) => match event {
                 crossterm::event::Event::Key(key_event)
                     if key_event.kind == crossterm::event::KeyEventKind::Press =>
                 {
-                    self.handle_key_event(key_event)?;
+                    self.handle_key_event(key_event).await?;
                 }
                 _ => {}
             },
-            Event::Internal(app_event) => match app_event {
+            Event::Internal(event) => match event {
                 InternalEvent::SwitchMode(mode) => self.switch_mode(mode),
                 InternalEvent::Quit => self.quit(),
                 InternalEvent::SendMessage(message) => self.ui.messages.push(message),
             },
+            Event::Matrix(_event) => {}
         }
 
         Ok(())
@@ -109,12 +114,12 @@ impl App {
 }
 
 impl Component for App {
-    fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
+    async fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
         debug!("Received key event: {:?}", key_event);
 
         match &self.mode {
-            Mode::Messages => self.ui.messages.handle_key_event(key_event),
-            Mode::Input => self.ui.input.handle_key_event(key_event),
+            Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
+            Mode::Input => self.ui.input.handle_key_event(key_event).await,
         }
     }
 

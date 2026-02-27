@@ -1,12 +1,12 @@
 use color_eyre::Result;
-use crossbeam_channel::Sender;
+use tokio::sync::mpsc::Sender;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
 };
 
 use crate::{
-    event::{Event, InternalEvent, Mode},
+    events::{Event, InternalEvent, Mode},
     ui::{component::Component, user_input::UserInputWidget},
 };
 
@@ -28,7 +28,7 @@ impl InputWidget {
 }
 
 impl Component for InputWidget {
-    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         if !self.input.is_focused() {
             return Ok(());
         }
@@ -38,18 +38,20 @@ impl Component for InputWidget {
                 self.input.set_focused(false);
                 self.input.clear();
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))?;
+                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))
+                    .await?;
             }
             KeyCode::Enter => {
                 let message = self.input.get_input();
                 self.event_tx
                     .send(Event::Internal(InternalEvent::SendMessage(
                         message.to_string(),
-                    )))?;
+                    )))
+                    .await?;
                 self.input.clear();
             }
             _ => {
-                self.input.handle_key_event(key)?;
+                self.input.handle_key_event(key).await?;
             }
         }
 

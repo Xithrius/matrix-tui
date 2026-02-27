@@ -1,4 +1,6 @@
-pub mod core;
-pub mod matrix;
-pub mod persistence;
-pub mod terminal;
+mod core;
+mod matrix;
+mod persistence;
+mod terminal;
+
+pub use crate::config::core::CoreConfig;

@@ -90,7 +90,7 @@ impl UserInputWidget {
 }
 
 impl Component for UserInputWidget {
-    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         if !self.is_focused() {
             return Ok(());
         }

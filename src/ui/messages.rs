@@ -1,5 +1,5 @@
 use color_eyre::Result;
-use crossbeam_channel::Sender;
+use tokio::sync::mpsc::Sender;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -7,7 +7,7 @@ use tui::{
 };
 
 use crate::{
-    event::{Event, InternalEvent, Mode},
+    events::{Event, InternalEvent, Mode},
     ui::component::Component,
 };
 
@@ -32,12 +32,14 @@ impl MessagesWidget {
 }
 
 impl Component for MessagesWidget {
-    fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         let index = self.table_state.selected();
 
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {
-                self.event_tx.send(Event::Internal(InternalEvent::Quit))?;
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::Quit))
+                    .await?;
             }
             KeyCode::Up => {
                 let index = index.unwrap_or(0).saturating_sub(1);
@@ -54,7 +56,8 @@ impl Component for MessagesWidget {
             }
             KeyCode::Char('i') => {
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))?;
+                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
+                    .await?;
             }
             _ => {}
         }

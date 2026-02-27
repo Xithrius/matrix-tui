@@ -4,16 +4,18 @@
 use clap::Parser;
 use color_eyre::Result;
 
-use crate::{app::App, cli::Cli, config::core::CoreConfig};
+use crate::{app::App, cli::Cli, config::CoreConfig};
 
 mod app;
 mod cli;
 mod config;
-mod event;
+mod events;
 mod logging;
+mod matrix;
 mod ui;
 
-fn main() -> Result<()> {
+#[tokio::main]
+async fn main() -> Result<()> {
     color_eyre::install()?;
     crate::logging::init()?;
 
@@ -22,7 +24,7 @@ fn main() -> Result<()> {
 
     let terminal = tui::init();
     let app = App::new(&config);
-    app.run(terminal)?;
+    app.run(terminal).await?;
     tui::restore();
 
     Ok(())

@@ -6,7 +6,7 @@ use tui::{Frame, crossterm::event::KeyEvent, layout::Rect};
 /// receive events, update state, and be rendered on the screen.
 pub trait Component {
     /// Handle key events.
-    fn handle_key_event(&mut self, key: KeyEvent) -> color_eyre::Result<()> {
+    async fn handle_key_event(&mut self, key: KeyEvent) -> color_eyre::Result<()> {
         let _ = key;
         Ok(())
     }
