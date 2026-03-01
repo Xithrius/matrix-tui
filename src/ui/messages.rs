@@ -8,13 +8,14 @@ use tui::{
 
 use crate::{
     events::{Event, InternalEvent, Mode},
+    matrix::message::MatrixMessage,
     ui::component::Component,
 };
 
 pub struct MessagesWidget {
     event_tx: Sender<Event>,
     table_state: TableState,
-    messages: Vec<String>,
+    messages: Vec<MatrixMessage>,
 }
 
 impl MessagesWidget {
@@ -26,7 +27,7 @@ impl MessagesWidget {
         }
     }
 
-    pub fn push(&mut self, message: String) {
+    pub fn push(&mut self, message: MatrixMessage) {
         self.messages.push(message);
     }
 }
@@ -79,11 +80,12 @@ impl Component for MessagesWidget {
             .map(|message| {
                 Row::new(vec![
                     // TODO: More attributes of the message
-                    Cell::from(message.to_string()),
+                    Cell::from(message.name.clone()),
+                    Cell::from(message.content.clone()),
                 ])
             })
             .collect();
-        let widths = [Constraint::Length(45), Constraint::Percentage(100)];
+        let widths = [Constraint::Length(20), Constraint::Percentage(100)];
         let table = Table::new(rows, widths)
             .block(
                 Block::new()

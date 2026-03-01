@@ -1,4 +1,5 @@
 #![forbid(unsafe_code)]
+#![recursion_limit = "256"]
 #![warn(clippy::nursery, clippy::pedantic)]
 
 use clap::Parser;
@@ -23,7 +24,7 @@ async fn main() -> Result<()> {
     let config = CoreConfig::new(args.frame_rate)?;
 
     let terminal = tui::init();
-    let app = App::new(&config);
+    let app = App::new(&config).await?;
     app.run(terminal).await?;
     tui::restore();
 

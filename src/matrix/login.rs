@@ -3,26 +3,19 @@ use std::{
     io::{self, Write},
 };
 
-use color_eyre::{Result, eyre::bail};
-use matrix_sdk::{
-    Client, Room, RoomState,
-    config::SyncSettings,
-    ruma::{
-        api::client::session::get_login_types::v3::{IdentityProvider, LoginType},
-        events::room::message::{MessageType, OriginalSyncRoomMessageEvent},
-    },
-};
-use url::Url;
+use color_eyre::Result;
+use matrix_sdk::{Client, ruma::api::client::session::get_login_types::v3::IdentityProvider};
+use tracing::info;
 
 /// The initial device name when logging in with a device for the first time.
-const INITIAL_DEVICE_DISPLAY_NAME: &str = "login client";
+const INITIAL_DEVICE_DISPLAY_NAME: &str = "matrix-tui login client";
 
 #[derive(Clone, Debug)]
 pub enum LoginChoice {
     /// Login with username and password.
     Password,
 
-    /// Login with SSO.
+    /// Login with SSO (Single Sign On).
     Sso,
 
     /// Login with a specific SSO identity provider.
@@ -31,7 +24,7 @@ pub enum LoginChoice {
 
 impl LoginChoice {
     /// Login with this login choice.
-    async fn login(&self, client: &Client) -> Result<()> {
+    pub async fn login(&self, client: &Client) -> Result<()> {
         match self {
             LoginChoice::Password => login_with_password(client).await,
             LoginChoice::Sso => login_with_sso(client, None).await,
@@ -50,86 +43,6 @@ impl fmt::Display for LoginChoice {
     }
 }
 
-/// Log in to the given homeserver and sync.
-async fn login_and_sync(homeserver_url: String) -> Result<()> {
-    let homeserver_url = Url::parse(&homeserver_url)?;
-    let client = Client::new(homeserver_url).await?;
-
-    // First, let's figure out what login types are supported by the homeserver.
-    let mut choices = Vec::new();
-    let login_types = client.matrix_auth().get_login_types().await?.flows;
-
-    for login_type in login_types {
-        match login_type {
-            LoginType::Password(_) => {
-                choices.push(LoginChoice::Password)
-            }
-            LoginType::Sso(sso) => {
-                if sso.identity_providers.is_empty() {
-                    choices.push(LoginChoice::Sso)
-                } else {
-                    choices.extend(sso.identity_providers.into_iter().map(LoginChoice::SsoIdp))
-                }
-            }
-            // This is used for SSO, so it's not a separate choice.
-            LoginType::Token(_) |
-            // This is only for application services, ignore it here.
-            LoginType::ApplicationService(_) => {},
-            // We don't support unknown login types.
-            _ => {},
-        }
-    }
-
-    match choices.len() {
-        0 => {
-            bail!("Homeserver login types incompatible with this client");
-        }
-        1 => choices[0].login(&client).await?,
-        _ => offer_choices_and_login(&client, choices).await?,
-    }
-
-    // Now that we are logged in, we can sync and listen to new messages.
-    client.add_event_handler(on_room_message);
-    // This will sync until an error happens or the program is killed.
-    client.sync(SyncSettings::new()).await?;
-
-    Ok(())
-}
-
-/// Offer the given choices to the user and login with the selected option.
-async fn offer_choices_and_login(client: &Client, choices: Vec<LoginChoice>) -> Result<()> {
-    println!("Several options are available to login with this homeserver:\n");
-
-    let choice = loop {
-        for (idx, login_choice) in choices.iter().enumerate() {
-            println!("{idx}) {login_choice}");
-        }
-
-        print!("\nEnter your choice: ");
-        io::stdout().flush().expect("Unable to write to stdout");
-        let mut choice_str = String::new();
-        io::stdin()
-            .read_line(&mut choice_str)
-            .expect("Unable to read user input");
-
-        match choice_str.trim().parse::<usize>() {
-            Ok(choice) => {
-                if choice >= choices.len() {
-                    eprintln!("This is not a valid choice");
-                } else {
-                    break choice;
-                }
-            }
-            Err(_) => eprintln!("This is not a valid choice. Try again.\n"),
-        }
-    };
-
-    choices[choice].login(client).await?;
-
-    Ok(())
-}
-
-/// Login with a username and password.
 async fn login_with_password(client: &Client) -> Result<()> {
     println!("Logging in with username and password…");
 
@@ -170,15 +83,14 @@ async fn login_with_password(client: &Client) -> Result<()> {
     Ok(())
 }
 
-/// Login with SSO.
 async fn login_with_sso(client: &Client, idp: Option<&IdentityProvider>) -> Result<()> {
-    println!("Logging in with SSO…");
+    info!("Logging in with SSO…");
 
     let mut login_builder = client.matrix_auth().login_sso(|url| async move {
-        // Usually we would want to use a library to open the URL in the browser, but
-        // let's keep it simple.
-        println!("\nOpen this URL in your browser: {url}\n");
-        println!("Waiting for login token…");
+        // TODO: Have a crate open this URL in a browser
+        info!("\nOpen this URL in your browser: {url}\n");
+        info!("Waiting for login token…");
+
         Ok(())
     });
 
@@ -188,29 +100,7 @@ async fn login_with_sso(client: &Client, idp: Option<&IdentityProvider>) -> Resu
 
     login_builder.await?;
 
-    println!("Logged in as {}", client.user_id().unwrap());
+    info!("Logged in as {}", client.user_id().unwrap());
 
     Ok(())
-}
-
-/// Handle room messages by logging them.
-async fn on_room_message(event: OriginalSyncRoomMessageEvent, room: Room) {
-    // We only want to listen to joined rooms.
-    if room.state() != RoomState::Joined {
-        return;
-    }
-
-    // We only want to log text messages.
-    let MessageType::Text(msgtype) = &event.content.msgtype else {
-        return;
-    };
-
-    let member = room
-        .get_member(&event.sender)
-        .await
-        .expect("Couldn't get the room member")
-        .expect("The room member doesn't exist");
-    let name = member.name();
-
-    println!("{name}: {}", msgtype.body);
 }

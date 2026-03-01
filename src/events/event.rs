@@ -1,6 +1,6 @@
 use tui::crossterm::event::Event as CrosstermEvent;
 
-use crate::matrix::event::MatrixEvent;
+use crate::{events::Mode, matrix::event::MatrixEvent};
 
 #[derive(Clone, Debug)]
 pub enum Event {
@@ -16,13 +16,6 @@ pub enum Event {
     Internal(InternalEvent),
     /// Matrix-SDK events
     Matrix(MatrixEvent),
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-pub enum Mode {
-    #[default]
-    Messages,
-    Input,
 }
 
 #[derive(Clone, Debug)]
