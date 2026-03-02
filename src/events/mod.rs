@@ -4,4 +4,4 @@ mod mode;
 
 pub use event::{Event, InternalEvent};
 pub use event_loop::EventHandler;
-pub use mode::Mode;
+pub use mode::{LoginMode, Mode};

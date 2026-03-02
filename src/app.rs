@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
-use tracing::{debug, info};
+use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
     crossterm::{self, event::KeyEvent},
@@ -13,17 +13,15 @@ use crate::{
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
-        message::MatrixMessage,
     },
-    ui::{
-        component::Component, header::HeaderWidget, input::InputWidget, messages::MessagesWidget,
-    },
+    ui::{AuthenticationWidget, Component, HeaderWidget, InputWidget, MessagesWidget},
 };
 
 pub struct Ui {
     header: HeaderWidget,
     messages: MessagesWidget,
     input: InputWidget,
+    authentication: AuthenticationWidget,
 }
 
 impl Ui {
@@ -32,7 +30,8 @@ impl Ui {
             // TODO: Replace motd with something better
             header: HeaderWidget::new("matrix-tui".to_string(), mode),
             messages: MessagesWidget::new(event_tx.clone()),
-            input: InputWidget::new(event_tx),
+            input: InputWidget::new(event_tx.clone()),
+            authentication: AuthenticationWidget::new(event_tx),
         }
     }
 }
@@ -84,41 +83,34 @@ impl App {
 
         match event {
             Event::Tick => self.tick(),
-            Event::Crossterm(event) => {
-                info!("Received crossterm event: {:?}", event);
-                match event {
-                    crossterm::event::Event::Key(key_event)
-                        if key_event.kind == crossterm::event::KeyEventKind::Press =>
-                    {
-                        self.handle_key_event(key_event).await?;
-                    }
-                    _ => {}
+            Event::Crossterm(event) => match event {
+                crossterm::event::Event::Key(key_event)
+                    if key_event.kind == crossterm::event::KeyEventKind::Press =>
+                {
+                    self.handle_key_event(key_event).await?;
                 }
-            }
+                _ => {}
+            },
             Event::Internal(event) => {
-                info!("Received internal event: {:?}", event);
-
                 match event {
                     InternalEvent::SwitchMode(mode) => self.switch_mode(mode),
                     InternalEvent::Quit => self.quit(),
                     InternalEvent::SendMessage(content) => {
                         // TODO: Add to app context and pass reference to messages UI
                         let name = self.config.matrix.username.clone();
-                        let message = MatrixMessage::new(name, content);
-                        self.ui.messages.push(message);
+                        self.ui.messages.push_user_message(name, content);
                     }
                 }
             }
             Event::Matrix(event) => {
-                info!("Received matrix event: {:?}", event);
-
                 match event {
                     MatrixEvent::Action(matrix_action) => {
                         self.matrix_tx.send(matrix_action).await?;
                     }
                     MatrixEvent::Notification(matrix_notification) => match matrix_notification {
                         MatrixNotification::LoginChoices(login_choices) => {
-                            todo!();
+                            let message = format!("Login choices: {:?}", login_choices);
+                            self.ui.messages.push_system_message(message);
                         }
                         MatrixNotification::Message(matrix_message) => {
                             // TODO: Add to app context and pass reference to messages UI
@@ -147,11 +139,9 @@ impl App {
         debug!("Switching to mode: {:?}", mode);
 
         match &mode {
-            Mode::Input => self.ui.input.set_focused(true),
             Mode::Messages => {}
-            Mode::Login(login) => {
-                todo!();
-            }
+            Mode::Input => self.ui.input.set_focused(true),
+            Mode::Login(login) => self.ui.authentication.set_login_mode(login.clone()),
         }
 
         self.ui.header.set_mode(mode.clone());
@@ -166,13 +156,16 @@ impl Component for App {
         match &self.mode {
             Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
             Mode::Input => self.ui.input.handle_key_event(key_event).await,
-            Mode::Login(login) => {
-                todo!();
-            }
+            Mode::Login(login) => self.ui.authentication.handle_key_event(key_event).await,
         }
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
+        if let Mode::Login(_) = self.mode {
+            self.ui.authentication.draw(frame, area);
+            return;
+        }
+
         self.ui.header.draw(frame, area);
         self.ui.messages.draw(frame, area);
         self.ui.input.draw(frame, area);

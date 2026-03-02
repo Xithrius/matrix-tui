@@ -1,4 +1,7 @@
-use crate::matrix::{login::LoginChoice, message::MatrixMessage};
+use crate::{
+    matrix::{login::LoginChoice, message::MatrixMessage},
+    ui::LoginCredentials,
+};
 
 #[derive(Clone, Debug)]
 pub enum MatrixEvent {
@@ -8,8 +11,8 @@ pub enum MatrixEvent {
 
 #[derive(Clone, Debug)]
 pub enum MatrixAction {
-    SelectLogin(LoginChoice),
-    ChangeRoom(String)
+    SelectLogin(LoginChoice, Option<LoginCredentials>),
+    ChangeRoom(String),
 }
 
 #[derive(Clone, Debug)]

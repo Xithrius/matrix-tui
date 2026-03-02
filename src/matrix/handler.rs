@@ -1,23 +1,25 @@
 use color_eyre::Result;
 use matrix_sdk::{
     Client, Room,
+    deserialized_responses::TimelineEvent,
     event_handler::Ctx,
-    ruma::events::room::message::{OriginalSyncRoomMessageEvent, SyncRoomMessageEvent},
+    ruma::events::{AnySyncTimelineEvent, room::message::OriginalSyncRoomMessageEvent},
+    sync::{SyncResponse, Timeline},
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::error;
+use tracing::{error, info, warn};
 use url::Url;
 
+use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
 use crate::{
     config::CoreConfig,
     events::Event,
     matrix::{context::MatrixContext, login::LoginChoice},
 };
+use futures_util::StreamExt;
 use matrix_sdk::{
     config::SyncSettings, ruma::api::client::session::get_login_types::v3::LoginType,
 };
-
-use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
 
 #[derive(Debug)]
 pub struct MatrixHandler;
@@ -32,8 +34,12 @@ impl MatrixHandler {
         let client = Client::new(homeserver_url).await?;
         let context = MatrixContext::new(event_tx.clone());
 
-        let actor = MatrixThread::new(event_tx, action_rx, client, context);
-        tokio::spawn(async move { actor.run().await });
+        let mut actor = MatrixThread::new(event_tx, action_rx, client, context);
+        tokio::task::spawn(async move {
+            if let Err(err) = actor.run().await {
+                error!("Matrix runner ran into an issue: {}", err);
+            }
+        });
 
         Ok(Self {})
     }
@@ -67,24 +73,26 @@ impl MatrixThread {
 
         for login_type in login_types {
             match login_type {
-            LoginType::Password(_) => {
-                choices.push(LoginChoice::Password)
-            }
-            LoginType::Sso(sso) => {
-                if sso.identity_providers.is_empty() {
-                    choices.push(LoginChoice::Sso)
-                } else {
-                    choices.extend(sso.identity_providers.into_iter().map(LoginChoice::SsoIdp))
+                LoginType::Password(_) => {
+                    choices.push(LoginChoice::Password)
                 }
+                LoginType::Sso(sso) => {
+                    if sso.identity_providers.is_empty() {
+                        choices.push(LoginChoice::Sso)
+                    } else {
+                        choices.extend(sso.identity_providers.into_iter().map(LoginChoice::SsoIdp))
+                    }
+                }
+                // This is used for SSO, so it's not a separate choice.
+                LoginType::Token(_) |
+                // This is only for application services, ignore it here.
+                LoginType::ApplicationService(_) => {},
+                // We don't support unknown login types.
+                _ => {},
             }
-            // This is used for SSO, so it's not a separate choice.
-            LoginType::Token(_) |
-            // This is only for application services, ignore it here.
-            LoginType::ApplicationService(_) => {},
-            // We don't support unknown login types.
-            _ => {},
         }
-        }
+
+        info!("Available matrix login choices: {:?}", choices);
 
         self.event_tx
             .send(Event::Matrix(MatrixEvent::Notification(
@@ -110,23 +118,73 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn run(mut self) -> Result<()> {
+    async fn handle_matrix_action(&mut self, action: MatrixAction) -> Result<()> {
+        match action {
+            MatrixAction::SelectLogin(login_choice, login_credentials) => {
+                login_choice.login(&self.client, login_credentials).await?;
+            }
+            MatrixAction::ChangeRoom(room_id) => {
+                todo!()
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_stream_timeline_event(&mut self, event: &TimelineEvent) -> Result<()> {
+        let Ok(event) = event.raw().deserialize() else {
+            warn!("Failed to deserialize timeline event: {:?}", event);
+            return Ok(());
+        };
+
+        info!("Matrix task received sync timeline event {:?}", event);
+
+        Ok(())
+    }
+
+    async fn run(&mut self) -> Result<()> {
+        info!("Starting matrix task");
+
         self.send_login_choices().await?;
 
+        // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {
-            if let MatrixAction::SelectLogin(login_choice) = action {
-                login_choice.login(&self.client).await?;
+            if let MatrixAction::SelectLogin(login_choice, login_credentials) = action {
+                // TODO: Graceful retries for failed login attempts
+                login_choice.login(&self.client, login_credentials).await?;
                 break;
             }
         }
 
         self.add_event_handlers().await?;
-        self.client.sync(SyncSettings::new()).await?;
 
-        Ok(())
-    }
+        let client = self.client.clone();
+        let mut sync_stream = {
+            let settings = SyncSettings::default();
+            let stream = client.sync_stream(settings).await;
+            Box::pin(stream)
+        };
 
-    async fn send(&self, event: Event) {
-        let _ = self.event_tx.send(event).await;
+        loop {
+            tokio::select! {
+                biased;
+
+                Some(action) = self.action_rx.recv() => {
+                    if let Err(err) = self.handle_matrix_action(action).await {
+                        error!("Failed to handle matrix action: {}", err);
+                    }
+                },
+
+                Some(Ok(response)) = sync_stream.next() => {
+                    for room in response.rooms.joined.values() {
+                        for e in &room.timeline.events {
+                            if let Err(err) = self.handle_stream_timeline_event(e).await {
+                                error!("Failed to handle timeline event: {}", err);
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }

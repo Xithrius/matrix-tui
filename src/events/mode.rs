@@ -1,3 +1,5 @@
+use std::fmt;
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 pub enum LoginMode {
     #[default]
@@ -15,24 +17,20 @@ pub enum Mode {
 
 impl Default for Mode {
     fn default() -> Self {
-        // Self::Login(LoginMode::default())
-        Self::Messages
+        Self::Login(LoginMode::default())
     }
 }
 
-// TODO: Replace with fmt::Display impl
-impl ToString for Mode {
-    fn to_string(&self) -> String {
-        let msg = match self {
+impl fmt::Display for Mode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
             Mode::Login(login_mode) => match login_mode {
-                LoginMode::SelectLoginChoice => "Select login choice",
-                LoginMode::UsernamePrompt => "Username prompt",
-                LoginMode::PasswordPrompt => "Password prompt",
+                LoginMode::SelectLoginChoice => write!(f, "Select login choice"),
+                LoginMode::UsernamePrompt => write!(f, "Username prompt"),
+                LoginMode::PasswordPrompt => write!(f, "Password prompt"),
             },
-            Mode::Messages => "Messages",
-            Mode::Input => "Input",
-        };
-
-        msg.to_string()
+            Mode::Messages => write!(f, "Messages"),
+            Mode::Input => write!(f, "Input"),
+        }
     }
 }

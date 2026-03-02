@@ -1,11 +1,13 @@
-use std::{
-    fmt,
-    io::{self, Write},
-};
+use std::fmt;
 
-use color_eyre::Result;
+use color_eyre::{
+    Result,
+    eyre::{ContextCompat, bail},
+};
 use matrix_sdk::{Client, ruma::api::client::session::get_login_types::v3::IdentityProvider};
 use tracing::info;
+
+use crate::ui::LoginCredentials;
 
 /// The initial device name when logging in with a device for the first time.
 const INITIAL_DEVICE_DISPLAY_NAME: &str = "matrix-tui login client";
@@ -24,9 +26,17 @@ pub enum LoginChoice {
 
 impl LoginChoice {
     /// Login with this login choice.
-    pub async fn login(&self, client: &Client) -> Result<()> {
+    pub async fn login(
+        &self,
+        client: &Client,
+        credentials: Option<LoginCredentials>,
+    ) -> Result<()> {
         match self {
-            LoginChoice::Password => login_with_password(client).await,
+            LoginChoice::Password => {
+                let credentials = credentials
+                    .context("Login with password was not provided username and/or password")?;
+                login_with_password(client, credentials).await
+            }
             LoginChoice::Sso => login_with_sso(client, None).await,
             LoginChoice::SsoIdp(idp) => login_with_sso(client, Some(idp)).await,
         }
@@ -43,53 +53,32 @@ impl fmt::Display for LoginChoice {
     }
 }
 
-async fn login_with_password(client: &Client) -> Result<()> {
-    println!("Logging in with username and password…");
+async fn login_with_password(client: &Client, credentials: LoginCredentials) -> Result<()> {
+    info!("Logging in with username and password…");
 
-    loop {
-        print!("\nUsername: ");
-        io::stdout().flush().expect("Unable to write to stdout");
-        let mut username = String::new();
-        io::stdin()
-            .read_line(&mut username)
-            .expect("Unable to read user input");
-        username = username.trim().to_owned();
+    let LoginCredentials::Password { username, password } = credentials else {
+        bail!("Login with password method was somehow provided the wrong type of credentials");
+    };
 
-        print!("Password: ");
-        io::stdout().flush().expect("Unable to write to stdout");
-        let mut password = String::new();
-        io::stdin()
-            .read_line(&mut password)
-            .expect("Unable to read user input");
-        password = password.trim().to_owned();
+    let username = username.trim();
+    let password = password.trim();
 
-        match client
-            .matrix_auth()
-            .login_username(&username, &password)
-            .initial_device_display_name(INITIAL_DEVICE_DISPLAY_NAME)
-            .await
-        {
-            Ok(_) => {
-                println!("Logged in as {username}");
-                break;
-            }
-            Err(error) => {
-                println!("Error logging in: {error}");
-                println!("Please try again\n");
-            }
-        }
-    }
+    client
+        .matrix_auth()
+        .login_username(username, password)
+        .initial_device_display_name(INITIAL_DEVICE_DISPLAY_NAME)
+        .await?;
 
     Ok(())
 }
 
 async fn login_with_sso(client: &Client, idp: Option<&IdentityProvider>) -> Result<()> {
-    info!("Logging in with SSO…");
+    info!("Logging in with SSO...");
 
     let mut login_builder = client.matrix_auth().login_sso(|url| async move {
         // TODO: Have a crate open this URL in a browser
         info!("\nOpen this URL in your browser: {url}\n");
-        info!("Waiting for login token…");
+        info!("Waiting for login token...");
 
         Ok(())
     });

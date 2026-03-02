@@ -30,6 +30,16 @@ impl MessagesWidget {
     pub fn push(&mut self, message: MatrixMessage) {
         self.messages.push(message);
     }
+
+    pub fn push_user_message(&mut self, name: String, content: String) {
+        let message = MatrixMessage::new(name, content);
+        self.push(message);
+    }
+
+    pub fn push_system_message(&mut self, content: String) {
+        let message = MatrixMessage::new("System".to_string(), content);
+        self.push(message);
+    }
 }
 
 impl Component for MessagesWidget {
@@ -79,7 +89,6 @@ impl Component for MessagesWidget {
             .iter()
             .map(|message| {
                 Row::new(vec![
-                    // TODO: More attributes of the message
                     Cell::from(message.name.clone()),
                     Cell::from(message.content.clone()),
                 ])

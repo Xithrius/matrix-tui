@@ -2603,6 +2603,7 @@ dependencies = [
  "color-eyre",
  "config",
  "directories",
+ "futures-util",
  "matrix-sdk",
  "ratatui",
  "rustyline",

@@ -15,7 +15,7 @@ impl EventHandler {
     pub fn new(config: &CoreConfig, event_tx: Sender<Event>, event_rx: Receiver<Event>) -> Self {
         let fps = config.terminal.frame_rate;
         let actor = EventThread::new(event_tx, fps);
-        tokio::spawn(async move { actor.run().await });
+        tokio::task::spawn(async move { actor.run().await });
 
         Self { rx: event_rx }
     }
