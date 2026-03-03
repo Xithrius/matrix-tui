@@ -19,7 +19,7 @@ pub struct MatrixContext {
 }
 
 impl MatrixContext {
-    pub fn new(event_tx: Sender<Event>) -> Self {
+    pub const fn new(event_tx: Sender<Event>) -> Self {
         Self { event_tx }
     }
 

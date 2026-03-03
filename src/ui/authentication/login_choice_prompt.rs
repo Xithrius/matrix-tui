@@ -1,3 +1,5 @@
+use std::string::ToString;
+
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
 use tracing::info;
@@ -8,7 +10,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent},
+    events::{Event, InternalEvent, LoginMode, Mode},
     matrix::login::LoginChoice,
     ui::component::Component,
 };
@@ -33,6 +35,10 @@ impl LoginChoicePromptWidget {
 
     pub fn set_login_choices(&mut self, login_choices: Vec<LoginChoice>) {
         self.login_choices = login_choices;
+    }
+
+    pub fn selected_login_choice(&self) -> Option<LoginChoice> {
+        self.selected_login_choice.clone()
     }
 }
 
@@ -62,6 +68,11 @@ impl Component for LoginChoicePromptWidget {
             KeyCode::Enter => {
                 self.selected_login_choice = self.login_choices.get(index.unwrap_or(0)).cloned();
                 info!("Selected login choice: {:?}", self.selected_login_choice);
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
+                        LoginMode::UsernamePrompt,
+                    ))))
+                    .await?;
             }
             _ => {}
         }
@@ -73,7 +84,7 @@ impl Component for LoginChoicePromptWidget {
         let login_choices = self
             .login_choices
             .iter()
-            .map(|choice| choice.to_string())
+            .map(ToString::to_string)
             .collect::<Vec<String>>();
         let list = List::new(login_choices)
             .block(Block::bordered().title("Login choices"))

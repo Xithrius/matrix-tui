@@ -1,9 +1,6 @@
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum LoginCredentials {
-    Password {
-        username: String,
-        password: String,
-    },
-    #[allow(dead_code)]
+    Password { username: String, password: String },
     Other,
 }

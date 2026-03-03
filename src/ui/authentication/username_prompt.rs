@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
+use tracing::info;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -19,7 +20,7 @@ pub struct UsernamePromptWidget {
 
 impl UsernamePromptWidget {
     pub fn new(event_tx: Sender<Event>) -> Self {
-        let input = UserInputWidget::new(Some("Input"));
+        let input = UserInputWidget::new(Some("Username"));
 
         Self {
             input,
@@ -59,6 +60,8 @@ impl Component for UsernamePromptWidget {
                     return Ok(());
                 }
                 self.username = Some(username.to_owned());
+                info!("Username inputted: {}", username);
+
                 self.input.clear();
 
                 self.event_tx

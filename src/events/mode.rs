@@ -7,6 +7,7 @@ pub enum LoginMode {
     SelectLoginChoice,
     UsernamePrompt,
     PasswordPrompt,
+    Completed,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -25,13 +26,14 @@ impl Default for Mode {
 impl fmt::Display for Mode {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Mode::Login(login_mode) => match login_mode {
+            Self::Login(login_mode) => match login_mode {
                 LoginMode::SelectLoginChoice => write!(f, "Select login choice"),
                 LoginMode::UsernamePrompt => write!(f, "Username prompt"),
                 LoginMode::PasswordPrompt => write!(f, "Password prompt"),
+                LoginMode::Completed => write!(f, "Completed"),
             },
-            Mode::Messages => write!(f, "Messages"),
-            Mode::Input => write!(f, "Input"),
+            Self::Messages => write!(f, "Messages"),
+            Self::Input => write!(f, "Input"),
         }
     }
 }

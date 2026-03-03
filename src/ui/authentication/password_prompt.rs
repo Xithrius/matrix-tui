@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
+use tracing::info;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -14,17 +15,17 @@ pub struct PasswordPromptWidget {
     input: UserInputWidget,
     event_tx: Sender<Event>,
 
-    username: Option<String>,
+    password: Option<String>,
 }
 
 impl PasswordPromptWidget {
     pub fn new(event_tx: Sender<Event>) -> Self {
-        let input = UserInputWidget::new(Some("Input"));
+        let input = UserInputWidget::new(Some("Password"));
 
         Self {
             input,
             event_tx,
-            username: None,
+            password: None,
         }
     }
 
@@ -32,8 +33,8 @@ impl PasswordPromptWidget {
         self.input.set_focused(focused);
     }
 
-    pub fn username(&self) -> Option<String> {
-        self.username.clone()
+    pub fn password(&self) -> Option<String> {
+        self.password.clone()
     }
 }
 
@@ -54,16 +55,18 @@ impl Component for PasswordPromptWidget {
                     .await?;
             }
             KeyCode::Enter => {
-                let username = self.input.get_input();
-                if username.is_empty() {
+                let password = self.input.get_input();
+                if password.is_empty() {
                     return Ok(());
                 }
-                self.username = Some(username.to_owned());
+                self.password = Some(password.to_owned());
+                info!("Password inputted: {}", password);
+
                 self.input.clear();
 
                 self.event_tx
                     .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
-                        LoginMode::PasswordPrompt,
+                        LoginMode::Completed,
                     ))))
                     .await?;
             }

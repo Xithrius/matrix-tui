@@ -36,6 +36,7 @@ impl MessagesWidget {
         self.push(message);
     }
 
+    #[allow(dead_code)]
     pub fn push_system_message(&mut self, content: String) {
         let message = MatrixMessage::new("System".to_string(), content);
         self.push(message);

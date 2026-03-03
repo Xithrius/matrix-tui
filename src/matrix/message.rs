@@ -5,7 +5,7 @@ pub struct MatrixMessage {
 }
 
 impl MatrixMessage {
-    pub fn new(name: String, content: String) -> Self {
+    pub const fn new(name: String, content: String) -> Self {
         Self { name, content }
     }
 }

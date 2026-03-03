@@ -70,22 +70,15 @@ impl MatrixThread {
 
         for login_type in login_types {
             match login_type {
-                LoginType::Password(_) => {
-                    choices.push(LoginChoice::Password)
-                }
+                LoginType::Password(_) => choices.push(LoginChoice::Password),
                 LoginType::Sso(sso) => {
                     if sso.identity_providers.is_empty() {
-                        choices.push(LoginChoice::Sso)
+                        choices.push(LoginChoice::Sso);
                     } else {
-                        choices.extend(sso.identity_providers.into_iter().map(LoginChoice::SsoIdp))
+                        choices.extend(sso.identity_providers.into_iter().map(LoginChoice::SsoIdp));
                     }
                 }
-                // This is used for SSO, so it's not a separate choice.
-                LoginType::Token(_) |
-                // This is only for application services, ignore it here.
-                LoginType::ApplicationService(_) => {},
-                // We don't support unknown login types.
-                _ => {},
+                _ => {}
             }
         }
 
@@ -100,7 +93,8 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn add_event_handlers(&self) -> Result<()> {
+    #[allow(clippy::unnecessary_wraps)]
+    fn add_event_handlers(&self) -> Result<()> {
         self.client.add_event_handler_context(self.context.clone());
 
         // self.client.add_event_handler(
@@ -115,20 +109,22 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn handle_matrix_action(&mut self, action: MatrixAction) -> Result<()> {
-        match action {
-            MatrixAction::SelectLogin(login_choice, login_credentials) => {
-                login_choice.login(&self.client, login_credentials).await?;
-            }
-            MatrixAction::ChangeRoom(_room_id) => {
-                todo!()
-            }
-        }
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    fn handle_matrix_action(&self, _action: MatrixAction) -> Result<()> {
+        // match action {
+        //     MatrixAction::ChangeRoom(_room_id) => {
+        //         todo!();
+        //     }
+        //     MatrixAction::SelectLogin(..) => {
+        //         todo!();
+        //     },
+        // }
 
         Ok(())
     }
 
-    async fn handle_stream_timeline_event(&mut self, event: &TimelineEvent) -> Result<()> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    fn handle_stream_timeline_event(&self, event: &TimelineEvent) -> Result<()> {
         let Ok(event) = event.raw().deserialize() else {
             warn!("Failed to deserialize timeline event: {:?}", event);
             return Ok(());
@@ -139,10 +135,11 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn handle_sync_stream_response(&mut self, response: SyncResponse) -> Result<()> {
+    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    fn handle_sync_stream_response(&self, response: &SyncResponse) -> Result<()> {
         for room in response.rooms.joined.values() {
             for e in &room.timeline.events {
-                self.handle_stream_timeline_event(e).await?;
+                self.handle_stream_timeline_event(e)?;
             }
         }
 
@@ -156,14 +153,23 @@ impl MatrixThread {
 
         // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {
-            if let MatrixAction::SelectLogin(login_choice, login_credentials) = action {
+            if let MatrixAction::SelectLogin {
+                choice: login_choice,
+                credentials: login_credentials,
+            } = action
+            {
                 // TODO: Graceful retries for failed login attempts
                 login_choice.login(&self.client, login_credentials).await?;
+                self.event_tx
+                    .send(Event::Matrix(MatrixEvent::Notification(
+                        MatrixNotification::SuccessfulLogin,
+                    )))
+                    .await?;
                 break;
             }
         }
 
-        self.add_event_handlers().await?;
+        self.add_event_handlers()?;
 
         let client = self.client.clone();
         let mut sync_stream = {
@@ -177,12 +183,12 @@ impl MatrixThread {
                 biased;
 
                 Some(action) = self.action_rx.recv() => {
-                    if let Err(err) = self.handle_matrix_action(action).await {
+                    if let Err(err) = self.handle_matrix_action(action) {
                         error!("Failed to handle matrix action: {}", err);
                     }
                 },
                 Some(Ok(response)) = sync_stream.next() => {
-                    if let Err(err) = self.handle_sync_stream_response(response).await {
+                    if let Err(err) = self.handle_sync_stream_response(&response) {
                         error!("Failed to handle matrix sync stream response: {}", err);
                     }
                 }

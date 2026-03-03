@@ -32,13 +32,13 @@ impl LoginChoice {
         credentials: Option<LoginCredentials>,
     ) -> Result<()> {
         match self {
-            LoginChoice::Password => {
+            Self::Password => {
                 let credentials = credentials
                     .context("Login with password was not provided username and/or password")?;
                 login_with_password(client, credentials).await
             }
-            LoginChoice::Sso => login_with_sso(client, None).await,
-            LoginChoice::SsoIdp(idp) => login_with_sso(client, Some(idp)).await,
+            Self::Sso => login_with_sso(client, None).await,
+            Self::SsoIdp(idp) => login_with_sso(client, Some(idp)).await,
         }
     }
 }
@@ -46,9 +46,9 @@ impl LoginChoice {
 impl fmt::Display for LoginChoice {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            LoginChoice::Password => write!(f, "Username and password"),
-            LoginChoice::Sso => write!(f, "SSO"),
-            LoginChoice::SsoIdp(idp) => write!(f, "SSO via {}", idp.name),
+            Self::Password => write!(f, "Username and password"),
+            Self::Sso => write!(f, "SSO"),
+            Self::SsoIdp(idp) => write!(f, "SSO via {}", idp.name),
         }
     }
 }

@@ -13,12 +13,16 @@ pub enum MatrixEvent {
 #[derive(Clone, Debug)]
 #[allow(dead_code)]
 pub enum MatrixAction {
-    SelectLogin(LoginChoice, Option<LoginCredentials>),
+    SelectLogin {
+        choice: LoginChoice,
+        credentials: Option<LoginCredentials>,
+    },
     ChangeRoom(String),
 }
 
 #[derive(Clone, Debug)]
 pub enum MatrixNotification {
     LoginChoices(Vec<LoginChoice>),
+    SuccessfulLogin,
     Message(MatrixMessage),
 }

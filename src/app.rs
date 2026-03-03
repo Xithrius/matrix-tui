@@ -9,7 +9,7 @@ use tui::{
 
 use crate::{
     config::CoreConfig,
-    events::{Event, EventHandler, InternalEvent, Mode},
+    events::{Event, EventHandler, InternalEvent, LoginMode, Mode},
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
@@ -40,6 +40,7 @@ pub struct App {
     config: CoreConfig,
     running: bool,
     events: EventHandler,
+    event_tx: Sender<Event>,
     matrix_tx: Sender<MatrixAction>,
 
     mode: Mode,
@@ -55,12 +56,13 @@ impl App {
         let ui = Ui::new(event_tx.clone(), mode.clone());
 
         let events = EventHandler::new(config, event_tx.clone(), event_rx);
-        MatrixHandler::new(&config, event_tx, matrix_rx).await?;
+        MatrixHandler::new(config, event_tx.clone(), matrix_rx).await?;
 
         Ok(Self {
             config: config.clone(),
             running: true,
             events,
+            event_tx,
             matrix_tx,
             mode,
             ui,
@@ -76,6 +78,7 @@ impl App {
         Ok(())
     }
 
+    // TODO: Split into multiple methods
     pub async fn handle_events(&mut self) -> Result<()> {
         let Some(event) = self.events.next().await else {
             return Ok(());
@@ -93,8 +96,12 @@ impl App {
             },
             Event::Internal(event) => {
                 match event {
-                    InternalEvent::SwitchMode(mode) => self.switch_mode(mode),
-                    InternalEvent::Quit => self.quit(),
+                    InternalEvent::SwitchMode(mode) => {
+                        self.switch_mode(mode).await?;
+                    }
+                    InternalEvent::Quit => {
+                        self.quit();
+                    }
                     InternalEvent::SendMessage(content) => {
                         // TODO: Add to app context and pass reference to messages UI
                         let name = self.config.matrix.username.clone();
@@ -115,6 +122,9 @@ impl App {
                             // TODO: Add to app context and pass reference to messages UI
                             self.ui.messages.push(matrix_message);
                         }
+                        MatrixNotification::SuccessfulLogin => {
+                            self.switch_mode(Mode::Messages).await?;
+                        }
                     },
                 }
             }
@@ -134,17 +144,34 @@ impl App {
         self.running = false;
     }
 
-    pub fn switch_mode(&mut self, mode: Mode) {
+    pub async fn switch_mode(&mut self, mode: Mode) -> Result<()> {
         debug!("Switching to mode: {:?}", mode);
 
         match &mode {
             Mode::Messages => {}
             Mode::Input => self.ui.input.set_focused(true),
-            Mode::Login(login) => self.ui.authentication.set_login_mode(login.clone()),
+            Mode::Login(login_mode) => {
+                // TODO: Find where completed entering of credentials can be handled
+                if matches!(login_mode, LoginMode::Completed) {
+                    if let Some(login_choice) = self.ui.authentication.selected_login_choice() {
+                        let credentials = self.ui.authentication.get_login_credentials();
+                        let matrix_action =
+                            Event::Matrix(MatrixEvent::Action(MatrixAction::SelectLogin {
+                                choice: login_choice,
+                                credentials,
+                            }));
+                        self.event_tx.send(matrix_action).await?;
+                    }
+                }
+
+                self.ui.authentication.set_login_mode(login_mode.clone());
+            }
         }
 
         self.ui.header.set_mode(mode.clone());
         self.mode = mode;
+
+        Ok(())
     }
 }
 
