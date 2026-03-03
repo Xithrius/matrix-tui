@@ -1,6 +1,7 @@
 use std::fmt;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+#[allow(dead_code)]
 pub enum LoginMode {
     #[default]
     SelectLoginChoice,

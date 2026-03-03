@@ -109,8 +109,7 @@ impl App {
                     }
                     MatrixEvent::Notification(matrix_notification) => match matrix_notification {
                         MatrixNotification::LoginChoices(login_choices) => {
-                            let message = format!("Login choices: {:?}", login_choices);
-                            self.ui.messages.push_system_message(message);
+                            self.ui.authentication.set_login_choices(login_choices);
                         }
                         MatrixNotification::Message(matrix_message) => {
                             // TODO: Add to app context and pass reference to messages UI
@@ -156,7 +155,7 @@ impl Component for App {
         match &self.mode {
             Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
             Mode::Input => self.ui.input.handle_key_event(key_event).await,
-            Mode::Login(login) => self.ui.authentication.handle_key_event(key_event).await,
+            Mode::Login(_) => self.ui.authentication.handle_key_event(key_event).await,
         }
     }
 

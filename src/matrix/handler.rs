@@ -1,10 +1,7 @@
 use color_eyre::Result;
 use matrix_sdk::{
-    Client, Room,
-    deserialized_responses::TimelineEvent,
-    event_handler::Ctx,
-    ruma::events::{AnySyncTimelineEvent, room::message::OriginalSyncRoomMessageEvent},
-    sync::{SyncResponse, Timeline},
+    Client, Room, deserialized_responses::TimelineEvent, event_handler::Ctx,
+    ruma::events::room::message::OriginalSyncRoomMessageEvent, sync::SyncResponse,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
 use tracing::{error, info, warn};
@@ -123,7 +120,7 @@ impl MatrixThread {
             MatrixAction::SelectLogin(login_choice, login_credentials) => {
                 login_choice.login(&self.client, login_credentials).await?;
             }
-            MatrixAction::ChangeRoom(room_id) => {
+            MatrixAction::ChangeRoom(_room_id) => {
                 todo!()
             }
         }
@@ -138,6 +135,16 @@ impl MatrixThread {
         };
 
         info!("Matrix task received sync timeline event {:?}", event);
+
+        Ok(())
+    }
+
+    async fn handle_sync_stream_response(&mut self, response: SyncResponse) -> Result<()> {
+        for room in response.rooms.joined.values() {
+            for e in &room.timeline.events {
+                self.handle_stream_timeline_event(e).await?;
+            }
+        }
 
         Ok(())
     }
@@ -174,14 +181,9 @@ impl MatrixThread {
                         error!("Failed to handle matrix action: {}", err);
                     }
                 },
-
                 Some(Ok(response)) = sync_stream.next() => {
-                    for room in response.rooms.joined.values() {
-                        for e in &room.timeline.events {
-                            if let Err(err) = self.handle_stream_timeline_event(e).await {
-                                error!("Failed to handle timeline event: {}", err);
-                            }
-                        }
+                    if let Err(err) = self.handle_sync_stream_response(response).await {
+                        error!("Failed to handle matrix sync stream response: {}", err);
                     }
                 }
             }

@@ -4,12 +4,14 @@ use crate::{
 };
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum MatrixEvent {
     Action(MatrixAction),
     Notification(MatrixNotification),
 }
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum MatrixAction {
     SelectLogin(LoginChoice, Option<LoginCredentials>),
     ChangeRoom(String),
