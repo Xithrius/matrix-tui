@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{Sender, channel};
 use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
-    crossterm::{self, event::KeyEvent},
+    crossterm::{event::Event as CrosstermEvent, event::KeyEvent, event::KeyEventKind},
     layout::{Constraint, Layout, Rect},
 };
 
@@ -83,60 +83,86 @@ impl App {
         Ok(())
     }
 
-    // TODO: Split into multiple methods
+    async fn handle_crossterm_event(&mut self, event: CrosstermEvent) -> Result<()> {
+        if let CrosstermEvent::Key(key_event) = event
+            && key_event.kind == KeyEventKind::Press
+        {
+            self.handle_key_event(key_event).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn handle_internal_event(&mut self, event: InternalEvent) -> Result<()> {
+        match event {
+            InternalEvent::SwitchMode(mode) => {
+                self.switch_mode(mode).await?;
+            }
+            InternalEvent::Quit => {
+                self.quit();
+            }
+            InternalEvent::SendMessage(content) => {
+                // TODO: Add to app context and pass reference to messages UI
+                let name = self.config.matrix.username.clone();
+                self.ui.messages.push_user_message(name, content);
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_matrix_event(&mut self, event: MatrixEvent) -> Result<()> {
+        match event {
+            MatrixEvent::Action(matrix_action) => {
+                self.matrix_tx.send(matrix_action).await?;
+            }
+            MatrixEvent::Notification(matrix_notification) => {
+                self.handle_matrix_notification(matrix_notification).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    async fn handle_matrix_notification(&mut self, notification: MatrixNotification) -> Result<()> {
+        match notification {
+            MatrixNotification::LoginChoices(login_choices) => {
+                self.ui.authentication.set_login_choices(login_choices);
+            }
+            MatrixNotification::Message(matrix_message) => {
+                // TODO: Add to app context and pass reference to messages UI
+                self.ui.messages.push(matrix_message);
+            }
+            MatrixNotification::SuccessfulLogin => {
+                self.switch_mode(Mode::Messages).await?;
+            }
+            MatrixNotification::KnownRooms(rooms) => {
+                for room in rooms {
+                    self.ui.room_navigation.push_room(room.id.clone(), room);
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub async fn handle_events(&mut self) -> Result<()> {
         let Some(event) = self.events.next().await else {
             return Ok(());
         };
 
         match event {
-            Event::Tick => self.tick(),
-            Event::Crossterm(event) => match event {
-                crossterm::event::Event::Key(key_event)
-                    if key_event.kind == crossterm::event::KeyEventKind::Press =>
-                {
-                    self.handle_key_event(key_event).await?;
-                }
-                _ => {}
-            },
+            Event::Tick => {
+                self.tick();
+            }
+            Event::Crossterm(event) => {
+                self.handle_crossterm_event(event).await?;
+            }
             Event::Internal(event) => {
-                match event {
-                    InternalEvent::SwitchMode(mode) => {
-                        self.switch_mode(mode).await?;
-                    }
-                    InternalEvent::Quit => {
-                        self.quit();
-                    }
-                    InternalEvent::SendMessage(content) => {
-                        // TODO: Add to app context and pass reference to messages UI
-                        let name = self.config.matrix.username.clone();
-                        self.ui.messages.push_user_message(name, content);
-                    }
-                }
+                self.handle_internal_event(event).await?;
             }
             Event::Matrix(event) => {
-                match event {
-                    MatrixEvent::Action(matrix_action) => {
-                        self.matrix_tx.send(matrix_action).await?;
-                    }
-                    MatrixEvent::Notification(matrix_notification) => match matrix_notification {
-                        MatrixNotification::LoginChoices(login_choices) => {
-                            self.ui.authentication.set_login_choices(login_choices);
-                        }
-                        MatrixNotification::Message(matrix_message) => {
-                            // TODO: Add to app context and pass reference to messages UI
-                            self.ui.messages.push(matrix_message);
-                        }
-                        MatrixNotification::SuccessfulLogin => {
-                            self.switch_mode(Mode::Messages).await?;
-                        }
-                        MatrixNotification::KnownRooms(rooms) => {
-                            for room in rooms {
-                                self.ui.room_navigation.push_room(room.id.clone(), room);
-                            }
-                        }
-                    },
-                }
+                self.handle_matrix_event(event).await?;
             }
         }
 
