@@ -35,6 +35,7 @@ impl LoginChoicePromptWidget {
 
     pub fn set_login_choices(&mut self, login_choices: Vec<LoginChoice>) {
         self.login_choices = login_choices;
+        self.list_state.select_first();
     }
 
     pub fn selected_login_choice(&self) -> Option<LoginChoice> {
