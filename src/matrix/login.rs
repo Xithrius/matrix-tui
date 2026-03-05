@@ -7,10 +7,18 @@ use color_eyre::{
 use matrix_sdk::{Client, ruma::api::client::session::get_login_types::v3::IdentityProvider};
 use tracing::info;
 
-use crate::ui::LoginCredentials;
-
 /// The initial device name when logging in with a device for the first time.
 const INITIAL_DEVICE_DISPLAY_NAME: &str = "matrix-tui login client";
+
+#[derive(Clone, Debug)]
+pub enum LoginCredentials {
+    Password {
+        username: String,
+        password: String,
+    },
+    #[allow(dead_code)]
+    Other,
+}
 
 #[derive(Clone, Debug)]
 pub enum LoginChoice {

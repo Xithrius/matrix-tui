@@ -14,32 +14,8 @@ use crate::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
     },
-    ui::{
-        AuthenticationWidget, Component, HeaderWidget, InputWidget, MessagesWidget,
-        RoomNavigationWidget,
-    },
+    ui::{Component, Ui},
 };
-
-pub struct Ui {
-    header: HeaderWidget,
-    messages: MessagesWidget,
-    input: InputWidget,
-    authentication: AuthenticationWidget,
-    room_navigation: RoomNavigationWidget,
-}
-
-impl Ui {
-    pub fn new(event_tx: Sender<Event>, mode: Mode) -> Self {
-        Self {
-            // TODO: Replace motd with something better
-            header: HeaderWidget::new("matrix-tui".to_string(), mode),
-            messages: MessagesWidget::new(event_tx.clone()),
-            input: InputWidget::new(event_tx.clone()),
-            authentication: AuthenticationWidget::new(event_tx.clone()),
-            room_navigation: RoomNavigationWidget::new(event_tx),
-        }
-    }
-}
 
 pub struct App {
     config: CoreConfig,
@@ -138,7 +114,7 @@ impl App {
             }
             MatrixNotification::KnownRooms(rooms) => {
                 for room in rooms {
-                    self.ui.room_navigation.push_room(room.id.clone(), room);
+                    self.ui.navigation.rooms.push_room(room.id.clone(), room);
                 }
             }
         }
@@ -203,7 +179,7 @@ impl App {
                 self.ui.authentication.set_login_mode(login_mode.clone());
             }
             Mode::RoomNavigation => {
-                self.ui.room_navigation.ensure_initial_selection();
+                self.ui.navigation.rooms.ensure_initial_selection();
             }
         }
 
@@ -222,7 +198,7 @@ impl Component for App {
             Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
             Mode::Input => self.ui.input.handle_key_event(key_event).await,
             Mode::Login(_) => self.ui.authentication.handle_key_event(key_event).await,
-            Mode::RoomNavigation => self.ui.room_navigation.handle_key_event(key_event).await,
+            Mode::RoomNavigation => self.ui.navigation.rooms.handle_key_event(key_event).await,
         }
     }
 
@@ -243,7 +219,7 @@ impl Component for App {
             Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)]).areas(middle);
 
         self.ui.header.draw(frame, top);
-        self.ui.room_navigation.draw(frame, left);
+        self.ui.navigation.rooms.draw(frame, left);
         self.ui.messages.draw(frame, right);
         self.ui.input.draw(frame, bottom);
     }

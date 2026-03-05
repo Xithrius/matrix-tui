@@ -1,9 +1,6 @@
-use crate::{
-    matrix::{
-        login::LoginChoice,
-        models::{MatrixMessage, MatrixRoom},
-    },
-    ui::LoginCredentials,
+use crate::matrix::{
+    login::{LoginChoice, LoginCredentials},
+    models::{MatrixMessage, MatrixRoom},
 };
 
 #[derive(Clone, Debug)]

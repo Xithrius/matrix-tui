@@ -4,9 +4,8 @@ use tui::{crossterm::event::KeyEvent, prelude::*};
 
 use crate::{
     events::{Event, LoginMode},
-    matrix::login::LoginChoice,
+    matrix::login::{LoginChoice, LoginCredentials},
     ui::{
-        LoginCredentials,
         authentication::{LoginChoicePromptWidget, PasswordPromptWidget, UsernamePromptWidget},
         component::Component,
     },
