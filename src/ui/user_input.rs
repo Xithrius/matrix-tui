@@ -8,7 +8,7 @@ use rustyline::{
 use tui::{
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     prelude::*,
-    widgets::{Block, Paragraph},
+    widgets::{Block, BorderType, Paragraph},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
@@ -159,8 +159,11 @@ impl Component for UserInputWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let input = Paragraph::new(self.input.as_str())
-            .block(Block::bordered().title(self.title.clone().unwrap_or_default()));
+        let input = Paragraph::new(self.input.as_str()).block(
+            Block::bordered()
+                .title(self.title.clone().unwrap_or_default())
+                .border_type(BorderType::Rounded),
+        );
         frame.render_widget(input, area);
 
         if !self.is_focused() {

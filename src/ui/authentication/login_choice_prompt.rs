@@ -6,7 +6,7 @@ use tracing::debug;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
-    widgets::{Block, List, ListState},
+    widgets::{Block, BorderType, List, ListState},
 };
 
 use crate::{
@@ -87,8 +87,12 @@ impl Component for LoginChoicePromptWidget {
             .iter()
             .map(ToString::to_string)
             .collect::<Vec<String>>();
+
+        let block = Block::bordered()
+            .title("Login choices")
+            .border_type(BorderType::Rounded);
         let list = List::new(login_choices)
-            .block(Block::bordered().title("Login choices"))
+            .block(block)
             .highlight_style(Style::new().reversed())
             .repeat_highlight_symbol(true);
 
