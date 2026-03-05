@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
 use tui::{
@@ -15,7 +17,7 @@ use crate::{
 pub struct RoomNavigationWidget {
     event_tx: Sender<Event>,
     list_state: ListState,
-    rooms: Vec<MatrixRoom>,
+    rooms: BTreeMap<String, MatrixRoom>,
 }
 
 impl RoomNavigationWidget {
@@ -23,12 +25,17 @@ impl RoomNavigationWidget {
         Self {
             event_tx,
             list_state: ListState::default(),
-            rooms: Vec::new(),
+            rooms: BTreeMap::default(),
         }
     }
 
-    pub fn push(&mut self, room: MatrixRoom) {
-        self.rooms.push(room);
+    pub fn push_room(&mut self, room_id: String, room: MatrixRoom) {
+        self.rooms.insert(room_id, room);
+    }
+
+    #[allow(dead_code)]
+    pub fn remove_room(&mut self, room_id: &String) {
+        self.rooms.remove(room_id);
     }
 }
 
@@ -62,12 +69,9 @@ impl Component for RoomNavigationWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let [left, _] =
-            Layout::horizontal([Constraint::Length(20), Constraint::Percentage(100)]).areas(area);
-
         let entries: Vec<ListItem> = self
             .rooms
-            .iter()
+            .values()
             .map(|room| {
                 let line_item = room.name.clone().unwrap_or_else(|| room.id.clone());
                 ListItem::new(vec![Line::from(line_item)])
@@ -83,6 +87,6 @@ impl Component for RoomNavigationWidget {
             .block(block)
             .highlight_style(Style::new().reversed());
 
-        frame.render_stateful_widget(list, left, &mut self.list_state);
+        frame.render_stateful_widget(list, area, &mut self.list_state);
     }
 }

@@ -1,0 +1,4 @@
+- [ ] Message text wrapping
+- [ ] Chat input text wrapping
+- [ ] Minimal UI similar to IRC clients
+- [ ] [Session persistence](https://github.com/matrix-org/matrix-rust-sdk/tree/main/examples/persist_session)

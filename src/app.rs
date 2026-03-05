@@ -132,7 +132,7 @@ impl App {
                         }
                         MatrixNotification::KnownRooms(rooms) => {
                             for room in rooms {
-                                self.ui.messages.push_system_message(format!("{room:?}"));
+                                self.ui.room_navigation.push_room(room.id.clone(), room);
                             }
                         }
                     },
@@ -209,9 +209,12 @@ impl Component for App {
         ])
         .areas(area);
 
+        let [left, right] =
+            Layout::horizontal([Constraint::Length(20), Constraint::Percentage(100)]).areas(middle);
+
         self.ui.header.draw(frame, top);
-        // self.ui.room_navigation.draw(frame, area);
-        self.ui.messages.draw(frame, middle);
+        self.ui.room_navigation.draw(frame, left);
+        self.ui.messages.draw(frame, right);
         self.ui.input.draw(frame, bottom);
     }
 }

@@ -1,15 +1,9 @@
 use matrix_sdk::Room;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MatrixRoom {
     pub id: String,
     pub name: Option<String>,
-}
-
-impl MatrixRoom {
-    pub const fn new(id: String, name: Option<String>) -> Self {
-        Self { id, name }
-    }
 }
 
 impl From<Room> for MatrixRoom {

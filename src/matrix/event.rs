@@ -20,7 +20,12 @@ pub enum MatrixAction {
         choice: LoginChoice,
         credentials: Option<LoginCredentials>,
     },
+    GetRooms,
     ChangeRoom(String),
+    SendMessage {
+        room_id: String,
+        message_body: String,
+    },
 }
 
 #[derive(Clone, Debug)]

@@ -1,9 +1,11 @@
+use std::collections::HashMap;
+
 use color_eyre::Result;
 use matrix_sdk::{
     Client, Room,
     deserialized_responses::TimelineEvent,
     event_handler::Ctx,
-    ruma::events::room::{message::OriginalSyncRoomMessageEvent, name::SyncRoomNameEvent},
+    ruma::events::room::message::{OriginalSyncRoomMessageEvent, RoomMessageEventContent},
     sync::SyncResponse,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
@@ -50,10 +52,12 @@ struct MatrixThread {
     action_rx: Receiver<MatrixAction>,
     client: Client,
     context: MatrixContext,
+
+    rooms: HashMap<String, Room>,
 }
 
 impl MatrixThread {
-    const fn new(
+    fn new(
         event_tx: Sender<Event>,
         action_rx: Receiver<MatrixAction>,
         client: Client,
@@ -64,6 +68,7 @@ impl MatrixThread {
             action_rx,
             client,
             context,
+            rooms: HashMap::default(),
         }
     }
 
@@ -112,16 +117,42 @@ impl MatrixThread {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
-    fn handle_matrix_action(&self, _action: MatrixAction) -> Result<()> {
-        // match action {
-        //     MatrixAction::ChangeRoom(_room_id) => {
-        //         todo!();
-        //     }
-        //     MatrixAction::SelectLogin(..) => {
-        //         todo!();
-        //     },
-        // }
+    async fn send_message(&self, room_id: &String, message_body: &String) -> Result<()> {
+        let Some(room) = self.rooms.get(room_id) else {
+            return Ok(());
+        };
+
+        let content = RoomMessageEventContent::text_plain(message_body);
+
+        room.send(content).await?;
+
+        Ok(())
+    }
+
+    async fn handle_matrix_action(&self, action: &MatrixAction) -> Result<()> {
+        match action {
+            MatrixAction::GetRooms => {
+                let known_rooms: Vec<MatrixRoom> = self
+                    .client
+                    .rooms()
+                    .iter()
+                    .cloned()
+                    .map(Into::into)
+                    .collect();
+                self.event_tx
+                    .send(Event::Matrix(MatrixEvent::Notification(
+                        MatrixNotification::KnownRooms(known_rooms),
+                    )))
+                    .await?;
+            }
+            MatrixAction::SendMessage {
+                room_id,
+                message_body,
+            } => {
+                self.send_message(room_id, message_body).await?;
+            }
+            _ => {}
+        }
 
         Ok(())
     }
@@ -196,7 +227,7 @@ impl MatrixThread {
                 biased;
 
                 Some(action) = self.action_rx.recv() => {
-                    if let Err(err) = self.handle_matrix_action(action) {
+                    if let Err(err) = self.handle_matrix_action(&action).await {
                         error!("Failed to handle matrix action: {}", err);
                     }
                 },

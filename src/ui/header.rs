@@ -1,10 +1,4 @@
-use tui::{
-    Frame,
-    layout::{Constraint, Layout, Rect},
-    style::Style,
-    text::Span,
-    widgets::Paragraph,
-};
+use tui::{Frame, layout::Rect, style::Style, text::Span, widgets::Paragraph};
 
 use crate::{events::Mode, ui::component::Component};
 
