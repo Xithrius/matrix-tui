@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
 use tui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
     prelude::*,
     widgets::{Block, BorderType, Borders, Cell, Row, Table, TableState},
 };
@@ -46,6 +46,19 @@ impl MessagesWidget {
 impl Component for MessagesWidget {
     async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         let index = self.table_state.selected();
+
+        let contains_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+        if contains_ctrl {
+            if key.code == KeyCode::Char(' ') {
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::SwitchMode(
+                        Mode::RoomNavigation,
+                    )))
+                    .await?;
+            }
+
+            return Ok(());
+        }
 
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {

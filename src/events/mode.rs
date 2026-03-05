@@ -15,6 +15,7 @@ pub enum Mode {
     Login(LoginMode),
     Messages,
     Input,
+    RoomNavigation,
 }
 
 impl Default for Mode {
@@ -34,6 +35,7 @@ impl fmt::Display for Mode {
             },
             Self::Messages => write!(f, "Messages"),
             Self::Input => write!(f, "Input"),
+            Self::RoomNavigation => write!(f, "Room navigation"),
         }
     }
 }

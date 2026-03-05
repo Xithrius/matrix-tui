@@ -16,16 +16,25 @@ use crate::{
 
 pub struct RoomNavigationWidget {
     event_tx: Sender<Event>,
-    list_state: ListState,
     rooms: BTreeMap<String, MatrixRoom>,
+
+    list_state: ListState,
 }
 
 impl RoomNavigationWidget {
     pub fn new(event_tx: Sender<Event>) -> Self {
         Self {
             event_tx,
-            list_state: ListState::default(),
             rooms: BTreeMap::default(),
+
+            list_state: ListState::default(),
+        }
+    }
+
+    pub const fn ensure_initial_selection(&mut self) {
+        let selected = self.list_state.selected();
+        if selected.is_none() {
+            self.list_state.select(Some(0));
         }
     }
 
@@ -82,7 +91,6 @@ impl Component for RoomNavigationWidget {
             .title("Rooms")
             .borders(Borders::all())
             .border_type(BorderType::Rounded);
-
         let list = List::new(entries)
             .block(block)
             .highlight_style(Style::new().reversed());

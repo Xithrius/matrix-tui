@@ -202,6 +202,9 @@ impl App {
 
                 self.ui.authentication.set_login_mode(login_mode.clone());
             }
+            Mode::RoomNavigation => {
+                self.ui.room_navigation.ensure_initial_selection();
+            }
         }
 
         self.ui.header.set_mode(mode.clone());
@@ -219,6 +222,7 @@ impl Component for App {
             Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
             Mode::Input => self.ui.input.handle_key_event(key_event).await,
             Mode::Login(_) => self.ui.authentication.handle_key_event(key_event).await,
+            Mode::RoomNavigation => self.ui.room_navigation.handle_key_event(key_event).await,
         }
     }
 
@@ -236,7 +240,7 @@ impl Component for App {
         .areas(area);
 
         let [left, right] =
-            Layout::horizontal([Constraint::Length(20), Constraint::Percentage(100)]).areas(middle);
+            Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)]).areas(middle);
 
         self.ui.header.draw(frame, top);
         self.ui.room_navigation.draw(frame, left);
