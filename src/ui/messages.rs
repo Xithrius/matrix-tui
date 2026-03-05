@@ -8,7 +8,7 @@ use tui::{
 
 use crate::{
     events::{Event, InternalEvent, Mode},
-    matrix::message::MatrixMessage,
+    matrix::models::MatrixMessage,
     ui::component::Component,
 };
 
@@ -78,13 +78,6 @@ impl Component for MessagesWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let [_, top, _] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Percentage(100),
-            Constraint::Length(3),
-        ])
-        .areas(area);
-
         let rows: Vec<Row> = self
             .messages
             .iter()
@@ -105,6 +98,6 @@ impl Component for MessagesWidget {
             )
             .row_highlight_style(Style::new().reversed());
 
-        frame.render_stateful_widget(table, top, &mut self.table_state);
+        frame.render_stateful_widget(table, area, &mut self.table_state);
     }
 }

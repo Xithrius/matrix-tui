@@ -54,7 +54,7 @@ impl fmt::Display for LoginChoice {
 }
 
 async fn login_with_password(client: &Client, credentials: LoginCredentials) -> Result<()> {
-    info!("Logging in with username and password…");
+    info!("Logging in with username and password...");
 
     let LoginCredentials::Password { username, password } = credentials else {
         bail!("Login with password method was somehow provided the wrong type of credentials");

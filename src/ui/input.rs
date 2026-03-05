@@ -15,6 +15,7 @@ pub struct InputWidget {
     event_tx: Sender<Event>,
 }
 
+// TODO: Rename to something better
 impl InputWidget {
     pub fn new(event_tx: Sender<Event>) -> Self {
         let input = UserInputWidget::new(Some("Input"));
@@ -59,9 +60,6 @@ impl Component for InputWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let [_, top] =
-            Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(area);
-
-        self.input.draw(frame, top);
+        self.input.draw(frame, area);
     }
 }

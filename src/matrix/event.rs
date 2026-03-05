@@ -1,5 +1,8 @@
 use crate::{
-    matrix::{login::LoginChoice, message::MatrixMessage},
+    matrix::{
+        login::LoginChoice,
+        models::{MatrixMessage, MatrixRoom},
+    },
     ui::LoginCredentials,
 };
 
@@ -23,6 +26,12 @@ pub enum MatrixAction {
 #[derive(Clone, Debug)]
 pub enum MatrixNotification {
     LoginChoices(Vec<LoginChoice>),
+    /// The login choice selected was successful in authentication,
+    /// and the matrix task can now listen for more events besides logging in.
     SuccessfulLogin,
+    /// All the rooms the matrix client knows about.
+    ///
+    /// This includes joined, invited, and left rooms.
+    KnownRooms(Vec<MatrixRoom>),
     Message(MatrixMessage),
 }

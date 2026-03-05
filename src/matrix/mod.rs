@@ -2,4 +2,4 @@ pub mod context;
 pub mod event;
 pub mod handler;
 pub mod login;
-pub mod message;
+pub mod models;

@@ -26,11 +26,9 @@ impl HeaderWidget {
 
 impl Component for HeaderWidget {
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let [top] = Layout::vertical([Constraint::Length(1)]).areas(area);
-
         let motd_span = Span::styled(self.motd.clone(), Style::new().dim());
         let motd = Paragraph::new(motd_span).left_aligned();
-        frame.render_widget(motd, top);
+        frame.render_widget(motd, area);
 
         let mode_span = Span::styled(self.mode.to_string(), Style::new().dim());
         let mode = Paragraph::new(mode_span).right_aligned();

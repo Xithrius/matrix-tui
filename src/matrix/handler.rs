@@ -1,17 +1,20 @@
 use color_eyre::Result;
 use matrix_sdk::{
-    Client, Room, deserialized_responses::TimelineEvent, event_handler::Ctx,
-    ruma::events::room::message::OriginalSyncRoomMessageEvent, sync::SyncResponse,
+    Client, Room,
+    deserialized_responses::TimelineEvent,
+    event_handler::Ctx,
+    ruma::events::room::{message::OriginalSyncRoomMessageEvent, name::SyncRoomNameEvent},
+    sync::SyncResponse,
 };
 use tokio::sync::mpsc::{Receiver, Sender};
-use tracing::{error, info, warn};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
 use crate::{
     config::CoreConfig,
     events::Event,
-    matrix::{context::MatrixContext, login::LoginChoice},
+    matrix::{context::MatrixContext, login::LoginChoice, models::MatrixRoom},
 };
 use futures_util::StreamExt;
 use matrix_sdk::{
@@ -82,7 +85,7 @@ impl MatrixThread {
             }
         }
 
-        info!("Available matrix login choices: {:?}", choices);
+        debug!("Available matrix login choices: {:?}", choices);
 
         self.event_tx
             .send(Event::Matrix(MatrixEvent::Notification(
@@ -130,7 +133,7 @@ impl MatrixThread {
             return Ok(());
         };
 
-        info!("Matrix task received sync timeline event {:?}", event);
+        debug!("Matrix task received sync timeline event {:?}", event);
 
         Ok(())
     }
@@ -172,8 +175,18 @@ impl MatrixThread {
         self.add_event_handlers()?;
 
         let client = self.client.clone();
+
+        let settings = SyncSettings::default();
+        client.sync_once(settings.clone()).await?;
+
+        let known_rooms: Vec<MatrixRoom> = client.rooms().iter().cloned().map(Into::into).collect();
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::KnownRooms(known_rooms),
+            )))
+            .await?;
+
         let mut sync_stream = {
-            let settings = SyncSettings::default();
             let stream = client.sync_stream(settings).await;
             Box::pin(stream)
         };

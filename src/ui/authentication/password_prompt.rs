@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
-use tracing::info;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -60,7 +59,6 @@ impl Component for PasswordPromptWidget {
                     return Ok(());
                 }
                 self.password = Some(password.to_owned());
-                info!("Password inputted: {}", password);
 
                 self.input.clear();
 

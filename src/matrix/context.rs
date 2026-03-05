@@ -4,7 +4,7 @@ use crate::{
     events::Event,
     matrix::{
         event::{MatrixEvent, MatrixNotification},
-        message::MatrixMessage,
+        models::MatrixMessage,
     },
 };
 use color_eyre::{Result, eyre::ContextCompat};

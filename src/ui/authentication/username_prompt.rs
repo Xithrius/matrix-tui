@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
-use tracing::info;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -60,7 +59,6 @@ impl Component for UsernamePromptWidget {
                     return Ok(());
                 }
                 self.username = Some(username.to_owned());
-                info!("Username inputted: {}", username);
 
                 self.input.clear();
 

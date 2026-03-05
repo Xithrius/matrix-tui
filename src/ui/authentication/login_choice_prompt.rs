@@ -2,7 +2,7 @@ use std::string::ToString;
 
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
-use tracing::info;
+use tracing::debug;
 use tui::{
     crossterm::event::{KeyCode, KeyEvent},
     prelude::*,
@@ -67,7 +67,7 @@ impl Component for LoginChoicePromptWidget {
             }
             KeyCode::Enter => {
                 self.selected_login_choice = self.login_choices.get(index.unwrap_or(0)).cloned();
-                info!("Selected login choice: {:?}", self.selected_login_choice);
+                debug!("Selected login choice: {:?}", self.selected_login_choice);
                 self.event_tx
                     .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
                         LoginMode::UsernamePrompt,

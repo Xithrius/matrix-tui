@@ -4,7 +4,7 @@ use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
     crossterm::{self, event::KeyEvent},
-    layout::Rect,
+    layout::{Constraint, Layout, Rect},
 };
 
 use crate::{
@@ -14,7 +14,10 @@ use crate::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
     },
-    ui::{AuthenticationWidget, Component, HeaderWidget, InputWidget, MessagesWidget},
+    ui::{
+        AuthenticationWidget, Component, HeaderWidget, InputWidget, MessagesWidget,
+        RoomNavigationWidget,
+    },
 };
 
 pub struct Ui {
@@ -22,6 +25,7 @@ pub struct Ui {
     messages: MessagesWidget,
     input: InputWidget,
     authentication: AuthenticationWidget,
+    room_navigation: RoomNavigationWidget,
 }
 
 impl Ui {
@@ -31,7 +35,8 @@ impl Ui {
             header: HeaderWidget::new("matrix-tui".to_string(), mode),
             messages: MessagesWidget::new(event_tx.clone()),
             input: InputWidget::new(event_tx.clone()),
-            authentication: AuthenticationWidget::new(event_tx),
+            authentication: AuthenticationWidget::new(event_tx.clone()),
+            room_navigation: RoomNavigationWidget::new(event_tx),
         }
     }
 }
@@ -125,6 +130,11 @@ impl App {
                         MatrixNotification::SuccessfulLogin => {
                             self.switch_mode(Mode::Messages).await?;
                         }
+                        MatrixNotification::KnownRooms(rooms) => {
+                            for room in rooms {
+                                self.ui.messages.push_system_message(format!("{room:?}"));
+                            }
+                        }
                     },
                 }
             }
@@ -192,8 +202,16 @@ impl Component for App {
             return;
         }
 
-        self.ui.header.draw(frame, area);
-        self.ui.messages.draw(frame, area);
-        self.ui.input.draw(frame, area);
+        let [top, middle, bottom] = Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Percentage(100),
+            Constraint::Length(3),
+        ])
+        .areas(area);
+
+        self.ui.header.draw(frame, top);
+        // self.ui.room_navigation.draw(frame, area);
+        self.ui.messages.draw(frame, middle);
+        self.ui.input.draw(frame, bottom);
     }
 }
