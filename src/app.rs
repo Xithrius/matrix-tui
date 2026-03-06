@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{Sender, channel};
 use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
-    crossterm::{event::Event as CrosstermEvent, event::KeyEvent, event::KeyEventKind},
+    crossterm::event::{Event as CrosstermEvent, KeyEvent, KeyEventKind},
     layout::{Constraint, Layout, Rect},
 };
 

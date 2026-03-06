@@ -8,25 +8,11 @@ use color_eyre::{Result, eyre::Context};
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
+use crate::config::get_data_dir;
+
 static LOG_ENV: LazyLock<String> =
     LazyLock::new(|| format!("{}_LOG_LEVEL", env!("CARGO_PKG_NAME").to_uppercase()));
 static LOG_FILE: LazyLock<String> = LazyLock::new(|| format!("{}.log", env!("CARGO_PKG_NAME")));
-
-fn get_data_dir() -> Result<PathBuf> {
-    let partial_path = match env::consts::OS {
-        "linux" | "macos" => {
-            let home = env::var("HOME").context("HOME environment variable not found")?;
-
-            Path::new(&home).join(".local").join("share")
-        }
-        "windows" => {
-            todo!("Windows local storage has not been implemented yet");
-        }
-        _ => unimplemented!(),
-    };
-
-    Ok(partial_path)
-}
 
 pub fn init() -> Result<()> {
     let directory = get_data_dir()?;

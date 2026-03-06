@@ -25,7 +25,6 @@ fn project_directory() -> Option<ProjectDirs> {
     ProjectDirs::from("com", &BINARY_NAME, env!("CARGO_PKG_NAME"))
 }
 
-#[allow(unused)]
 pub fn get_data_dir() -> PathBuf {
     DATA_DIR.clone().unwrap_or_else(|| {
         project_directory().map_or_else(
