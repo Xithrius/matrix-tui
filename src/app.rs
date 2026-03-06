@@ -30,7 +30,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(config: &CoreConfig) -> Result<Self> {
+    pub fn new(config: &CoreConfig) -> Result<Self> {
         let (event_tx, event_rx) = channel(100);
         let (matrix_tx, matrix_rx) = channel(100);
         let mode = Mode::default();
@@ -38,7 +38,7 @@ impl App {
         let ui = Ui::new(event_tx.clone(), mode.clone());
 
         let events = EventHandler::new(config, event_tx.clone(), event_rx);
-        MatrixHandler::new(config, event_tx.clone(), matrix_rx).await?;
+        MatrixHandler::new(config, event_tx.clone(), matrix_rx)?;
 
         Ok(Self {
             config: config.clone(),

@@ -18,7 +18,7 @@ pub struct ClientSession {
 }
 
 impl ClientSession {
-    pub fn new(homeserver: Url, db_path: PathBuf, passphrase: String) -> Self {
+    pub const fn new(homeserver: Url, db_path: PathBuf, passphrase: String) -> Self {
         Self {
             homeserver,
             db_path,
@@ -46,7 +46,7 @@ pub struct FullSession {
 }
 
 impl FullSession {
-    pub fn new(
+    pub const fn new(
         client_session: ClientSession,
         user_session: MatrixSession,
         sync_token: Option<String>,
