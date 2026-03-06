@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::ContextCompat};
 use futures_util::StreamExt;
 use matrix_sdk::{
     Client, Room,
@@ -48,18 +48,10 @@ impl MatrixHandler {
 
         let data_dir = get_data_dir().join("persist_session");
         let session_file = data_dir.join("session");
-        let (client, client_session) = build_client(&data_dir, homeserver).await?;
 
         let context = MatrixContext::new(event_tx.clone());
 
-        let mut actor = MatrixThread::new(
-            event_tx,
-            action_rx,
-            client,
-            client_session,
-            session_file,
-            context,
-        );
+        let mut actor = MatrixThread::new(event_tx, action_rx, homeserver, session_file, context);
         tokio::task::spawn(async move {
             if let Err(err) = actor.run().await {
                 error!("Matrix runner ran into an issue: {}", err);
@@ -73,8 +65,9 @@ impl MatrixHandler {
 struct MatrixThread {
     event_tx: Sender<Event>,
     action_rx: Receiver<MatrixAction>,
-    client: Client,
-    client_session: ClientSession,
+    homeserver: Url,
+    client: Option<Client>,
+    client_session: Option<ClientSession>,
     session_file: PathBuf,
     sync_token: Option<String>,
     context: MatrixContext,
@@ -86,16 +79,16 @@ impl MatrixThread {
     fn new(
         event_tx: Sender<Event>,
         action_rx: Receiver<MatrixAction>,
-        client: Client,
-        client_session: ClientSession,
+        homeserver: Url,
         session_file: PathBuf,
         context: MatrixContext,
     ) -> Self {
         Self {
             event_tx,
             action_rx,
-            client,
-            client_session,
+            homeserver,
+            client: None,
+            client_session: None,
             session_file,
             sync_token: None,
             context,
@@ -104,8 +97,13 @@ impl MatrixThread {
     }
 
     async fn send_login_choices(&self) -> Result<()> {
+        let client = self
+            .client
+            .as_ref()
+            .context("Could not get client for sending login choices")?;
+
         let mut choices = Vec::new();
-        let login_types = self.client.matrix_auth().get_login_types().await?.flows;
+        let login_types = client.matrix_auth().get_login_types().await?.flows;
 
         for login_type in login_types {
             match login_type {
@@ -134,9 +132,14 @@ impl MatrixThread {
 
     #[allow(clippy::unnecessary_wraps)]
     fn add_event_handlers(&self) -> Result<()> {
-        self.client.add_event_handler_context(self.context.clone());
+        let client = self
+            .client
+            .as_ref()
+            .context("Could not get client for sending login choices")?;
 
-        self.client.add_event_handler(|event: OriginalSyncRoomMessageEvent, room: Room, context: Ctx<MatrixContext>| async move {
+        client.add_event_handler_context(self.context.clone());
+
+        client.add_event_handler(|event: OriginalSyncRoomMessageEvent, room: Room, context: Ctx<MatrixContext>| async move {
             if let Err(err) = context.on_room_message(event, room).await {
                 error!("Failed to handle room message: {}", err);
             }
@@ -158,15 +161,16 @@ impl MatrixThread {
     }
 
     async fn handle_matrix_action(&self, action: &MatrixAction) -> Result<()> {
+        let client = self
+            .client
+            .as_ref()
+            .context("Could not get client for handling matrix action")?;
+
         match action {
             MatrixAction::GetRooms => {
-                let known_rooms: Vec<MatrixRoom> = self
-                    .client
-                    .rooms()
-                    .iter()
-                    .cloned()
-                    .map(Into::into)
-                    .collect();
+                let known_rooms: Vec<MatrixRoom> =
+                    client.rooms().iter().cloned().map(Into::into).collect();
+
                 self.event_tx
                     .send(Event::Matrix(MatrixEvent::Notification(
                         MatrixNotification::KnownRooms(known_rooms),
@@ -192,8 +196,10 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn attempt_login(&mut self) -> Result<()> {
+    async fn attempt_login(&mut self, data_dir: &Path) -> Result<()> {
         self.send_login_choices().await?;
+
+        let (client, client_session) = build_client(&data_dir, self.homeserver.clone()).await?;
 
         // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {
@@ -203,7 +209,7 @@ impl MatrixThread {
             } = action
             {
                 // TODO: Graceful retries for failed login attempts
-                login_choice.login(&self.client, login_credentials).await?;
+                login_choice.login(&client, login_credentials).await?;
                 self.event_tx
                     .send(Event::Matrix(MatrixEvent::Notification(
                         MatrixNotification::SuccessfulLogin,
@@ -213,7 +219,7 @@ impl MatrixThread {
             }
         }
 
-        let matrix_auth = self.client.matrix_auth();
+        let matrix_auth = client.matrix_auth();
 
         // Persist the session to reuse it later.
         // This is not very secure, for simplicity. If the system provides a way of
@@ -221,8 +227,8 @@ impl MatrixThread {
         // Note that we could also build the user session from the login response.
         let user_session = matrix_auth
             .session()
-            .expect("A logged-in client should have a session");
-        let full_session = FullSession::new(self.client_session.clone(), user_session, None);
+            .context("Could not find Matrix session")?;
+        let full_session = FullSession::new(client_session.clone(), user_session, None);
         let serialized_session = serde_json::to_string(&full_session)?;
         fs::write(self.session_file.clone(), serialized_session).await?;
 
@@ -231,6 +237,9 @@ impl MatrixThread {
         // first session with encryption, or if you need to reset cross-signing because
         // you don't have access to your old sessions (see the
         // `cross_signing_bootstrap` example).
+
+        self.client = Some(client);
+        self.client_session = Some(client_session);
 
         Ok(())
     }
@@ -254,13 +263,20 @@ impl MatrixThread {
             .build()
             .await?;
 
-        self.client_session = client_session;
-        self.sync_token = sync_token;
-
-        info!("Restoring session for {}…", user_session.meta.user_id);
+        info!("Restoring session for {}...", user_session.meta.user_id);
 
         // Restore the Matrix user session.
         client.restore_session(user_session).await?;
+
+        self.client = Some(client);
+        self.client_session = Some(client_session);
+        self.sync_token = sync_token;
+
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::SuccessfulLogin,
+            )))
+            .await?;
 
         Ok(())
     }
@@ -274,12 +290,15 @@ impl MatrixThread {
         if session_file.exists() {
             self.attempt_session_restore(&session_file).await?;
         } else {
-            self.attempt_login().await?;
+            self.attempt_login(&data_dir).await?;
         }
 
         self.add_event_handlers()?;
 
-        let client = self.client.clone();
+        let client = self
+            .client
+            .clone()
+            .context("Failed to get client after login or session restore")?;
 
         // Enable room members lazy-loading, it will speed up the initial sync a lot
         // with accounts in lots of rooms.
