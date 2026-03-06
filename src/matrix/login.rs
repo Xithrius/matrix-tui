@@ -71,8 +71,9 @@ async fn login_with_password(client: &Client, credentials: LoginCredentials) -> 
     let username = username.trim();
     let password = password.trim();
 
-    client
-        .matrix_auth()
+    let matrix_auth = client.matrix_auth();
+
+    matrix_auth
         .login_username(username, password)
         .initial_device_display_name(INITIAL_DEVICE_DISPLAY_NAME)
         .await?;
@@ -83,7 +84,8 @@ async fn login_with_password(client: &Client, credentials: LoginCredentials) -> 
 async fn login_with_sso(client: &Client, idp: Option<&IdentityProvider>) -> Result<()> {
     info!("Logging in with SSO...");
 
-    let mut login_builder = client.matrix_auth().login_sso(|url| async move {
+    let matrix_auth = client.matrix_auth();
+    let mut login_builder = matrix_auth.login_sso(|url| async move {
         // TODO: Have a crate open this URL in a browser
         info!("\nOpen this URL in your browser: {url}\n");
         info!("Waiting for login token...");
@@ -96,8 +98,6 @@ async fn login_with_sso(client: &Client, idp: Option<&IdentityProvider>) -> Resu
     }
 
     login_builder.await?;
-
-    info!("Logged in as {}", client.user_id().unwrap());
 
     Ok(())
 }
