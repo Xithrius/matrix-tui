@@ -39,7 +39,7 @@ use crate::{
 pub struct MatrixHandler;
 
 impl MatrixHandler {
-    pub async fn new(
+    pub fn new(
         config: &CoreConfig,
         event_tx: Sender<Event>,
         action_rx: Receiver<MatrixAction>,
@@ -199,7 +199,7 @@ impl MatrixThread {
     async fn attempt_login(&mut self, data_dir: &Path) -> Result<()> {
         self.send_login_choices().await?;
 
-        let (client, client_session) = build_client(&data_dir, self.homeserver.clone()).await?;
+        let (client, client_session) = build_client(data_dir, self.homeserver.clone()).await?;
 
         // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {

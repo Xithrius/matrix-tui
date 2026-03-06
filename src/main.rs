@@ -25,7 +25,7 @@ async fn main() -> Result<()> {
     let config = CoreConfig::new(args.frame_rate)?;
 
     let terminal = tui::init();
-    let app = App::new(&config).await?;
+    let app = App::new(&config)?;
     app.run(terminal).await?;
     tui::restore();
 
