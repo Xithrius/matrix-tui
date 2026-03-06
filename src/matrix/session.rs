@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use color_eyre::Result;
 use matrix_sdk::{Client, authentication::matrix::MatrixSession, ruma::exports::serde_json};
-use rand::{Rng, distributions::Alphanumeric, thread_rng};
+use rand::{Rng, SeedableRng, distributions::Alphanumeric, rngs::StdRng};
 use serde::{Deserialize, Serialize};
 use tokio::fs;
 use url::Url;
@@ -60,7 +60,7 @@ impl FullSession {
 }
 
 pub async fn build_client(data_dir: &Path, homeserver: Url) -> Result<(Client, ClientSession)> {
-    let mut rng = thread_rng();
+    let mut rng = StdRng::from_entropy();
 
     // Generating a subfolder for the database is not mandatory, but it is useful if
     // you allow several clients to run at the same time. Each one must have a
