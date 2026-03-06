@@ -1,3 +1,8 @@
+use color_eyre::{Result, eyre::ContextCompat};
+use matrix_sdk::{
+    Room, RoomState,
+    ruma::events::room::message::{MessageType, OriginalSyncRoomMessageEvent},
+};
 use tokio::sync::mpsc::Sender;
 
 use crate::{
@@ -6,11 +11,6 @@ use crate::{
         event::{MatrixEvent, MatrixNotification},
         models::MatrixMessage,
     },
-};
-use color_eyre::{Result, eyre::ContextCompat};
-use matrix_sdk::{
-    Room, RoomState,
-    ruma::events::room::message::{MessageType, OriginalSyncRoomMessageEvent},
 };
 
 #[derive(Debug, Clone)]
