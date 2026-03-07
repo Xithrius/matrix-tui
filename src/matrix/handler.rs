@@ -96,12 +96,7 @@ impl MatrixThread {
         }
     }
 
-    async fn send_login_choices(&self) -> Result<()> {
-        let client = self
-            .client
-            .as_ref()
-            .context("Could not get client for sending login choices")?;
-
+    async fn send_login_choices(&self, client: &Client) -> Result<()> {
         let mut choices = Vec::new();
         let login_types = client.matrix_auth().get_login_types().await?.flows;
 
@@ -197,9 +192,9 @@ impl MatrixThread {
     }
 
     async fn attempt_login(&mut self, data_dir: &Path) -> Result<()> {
-        self.send_login_choices().await?;
-
         let (client, client_session) = build_client(data_dir, self.homeserver.clone()).await?;
+
+        self.send_login_choices(&client).await?;
 
         // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {
