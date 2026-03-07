@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
-use tracing::debug;
+use tracing::{debug, error};
 use tui::{
     DefaultTerminal, Frame,
     crossterm::event::{Event as CrosstermEvent, KeyEvent, KeyEventKind},
@@ -13,6 +13,7 @@ use crate::{
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
+        models::MatrixMessage,
     },
     ui::{Component, Ui},
 };
@@ -79,8 +80,23 @@ impl App {
             }
             InternalEvent::SendMessage(content) => {
                 // TODO: Add to app context and pass reference to messages UI
+                let Some(room_id) = self.ui.navigation.rooms.selected_room_id() else {
+                    error!("Could not find selected room ID when sending message");
+                    return Ok(());
+                };
+
                 let name = self.config.matrix.username.clone();
-                self.ui.messages.push_user_message(name, content);
+                let matrix_message = MatrixMessage::new(name, content.clone());
+                self.ui
+                    .messages
+                    .push_message(room_id.clone(), matrix_message);
+
+                self.matrix_tx
+                    .send(MatrixAction::SendMessage {
+                        room_id,
+                        message_body: content,
+                    })
+                    .await?;
             }
         }
 
@@ -105,9 +121,9 @@ impl App {
             MatrixNotification::LoginChoices(login_choices) => {
                 self.ui.authentication.set_login_choices(login_choices);
             }
-            MatrixNotification::Message(matrix_message) => {
+            MatrixNotification::Message { room_id, message } => {
                 // TODO: Add to app context and pass reference to messages UI
-                self.ui.messages.push(matrix_message);
+                self.ui.messages.push_message(room_id, message);
             }
             MatrixNotification::SuccessfulLogin => {
                 self.switch_mode(Mode::Messages).await?;
@@ -116,6 +132,8 @@ impl App {
                 for room in rooms {
                     self.ui.navigation.rooms.push_room(room.id.clone(), room);
                 }
+
+                self.ui.messages.ensure_selected_room_id();
             }
         }
 

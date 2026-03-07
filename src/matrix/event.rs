@@ -35,5 +35,8 @@ pub enum MatrixNotification {
     ///
     /// This includes joined, invited, and left rooms.
     KnownRooms(Vec<MatrixRoom>),
-    Message(MatrixMessage),
+    Message {
+        room_id: String,
+        message: MatrixMessage,
+    },
 }

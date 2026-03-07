@@ -1,3 +1,8 @@
+use std::{
+    collections::{BTreeMap, VecDeque},
+    string::ToString,
+};
+
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
 use tui::{
@@ -15,7 +20,9 @@ use crate::{
 pub struct MessagesWidget {
     event_tx: Sender<Event>,
     table_state: TableState,
-    messages: Vec<MatrixMessage>,
+
+    selected_room_id: Option<String>,
+    messages: BTreeMap<String, VecDeque<MatrixMessage>>,
 }
 
 impl MessagesWidget {
@@ -23,23 +30,33 @@ impl MessagesWidget {
         Self {
             event_tx,
             table_state: TableState::default(),
-            messages: Vec::new(),
+            selected_room_id: None,
+            messages: BTreeMap::default(),
         }
     }
 
-    pub fn push(&mut self, message: MatrixMessage) {
-        self.messages.push(message);
-    }
-
-    pub fn push_user_message(&mut self, name: String, content: String) {
-        let message = MatrixMessage::new(name, content);
-        self.push(message);
-    }
-
     #[allow(dead_code)]
-    pub fn push_system_message(&mut self, content: String) {
-        let message = MatrixMessage::new("System".to_string(), content);
-        self.push(message);
+    pub fn set_selected_room_id(&mut self, room_id: String) {
+        self.selected_room_id = Some(room_id);
+    }
+
+    pub fn ensure_selected_room_id(&mut self) {
+        if self.selected_room_id.is_some() {
+            return;
+        }
+
+        let first_room_id = self
+            .messages
+            .keys()
+            .collect::<Vec<&String>>()
+            .first()
+            .map(ToString::to_string);
+
+        self.selected_room_id = first_room_id;
+    }
+
+    pub fn push_message(&mut self, room_id: String, message: MatrixMessage) {
+        self.messages.entry(room_id).or_default().push_back(message);
     }
 }
 
@@ -91,14 +108,24 @@ impl Component for MessagesWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let rows: Vec<Row> = self
-            .messages
+        let selected_room_id = self.selected_room_id.as_ref();
+        let room_messages = if let Some(selected_room_id) = selected_room_id {
+            self.messages
+                .get(selected_room_id)
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            VecDeque::new()
+        };
+
+        let rows: Vec<Row> = room_messages
             .iter()
             .map(|message| {
-                Row::new(vec![
+                let cells = vec![
                     Cell::from(message.name.clone()),
                     Cell::from(message.content.clone()),
-                ])
+                ];
+                Row::new(cells)
             })
             .collect();
         let widths = [Constraint::Length(20), Constraint::Percentage(100)];

@@ -46,6 +46,12 @@ impl RoomNavigationWidget {
     pub fn remove_room(&mut self, room_id: &String) {
         self.rooms.remove(room_id);
     }
+
+    pub fn selected_room_id(&self) -> Option<String> {
+        let selected = self.list_state.selected()?;
+
+        self.rooms.keys().nth(selected).cloned()
+    }
 }
 
 impl Component for RoomNavigationWidget {

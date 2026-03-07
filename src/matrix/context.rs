@@ -45,9 +45,11 @@ impl MatrixContext {
 
         let message = MatrixMessage::new(name.to_owned(), msgtype.body.clone());
 
-        let room_message_event = Event::Matrix(MatrixEvent::Notification(
-            MatrixNotification::Message(message),
-        ));
+        let room_message_event =
+            Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {
+                room_id: room.room_id().to_string(),
+                message,
+            }));
         self.event_tx.send(room_message_event).await?;
 
         Ok(())
