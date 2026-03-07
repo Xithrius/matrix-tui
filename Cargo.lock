@@ -2605,6 +2605,7 @@ dependencies = [
  "directories",
  "futures-util",
  "matrix-sdk",
+ "rand 0.8.5",
  "ratatui",
  "rustyline",
  "serde",
