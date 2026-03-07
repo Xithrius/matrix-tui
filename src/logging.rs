@@ -1,10 +1,6 @@
-use std::{
-    env,
-    path::{Path, PathBuf},
-    sync::LazyLock,
-};
+use std::{env, sync::LazyLock};
 
-use color_eyre::{Result, eyre::Context};
+use color_eyre::Result;
 use tracing_error::ErrorLayer;
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
@@ -15,7 +11,7 @@ static LOG_ENV: LazyLock<String> =
 static LOG_FILE: LazyLock<String> = LazyLock::new(|| format!("{}.log", env!("CARGO_PKG_NAME")));
 
 pub fn init() -> Result<()> {
-    let directory = get_data_dir()?;
+    let directory = get_data_dir();
     std::fs::create_dir_all(directory.clone())?;
     let log_path = directory.join(LOG_FILE.clone());
     let log_file = std::fs::File::create(log_path)?;
@@ -25,7 +21,8 @@ pub fn init() -> Result<()> {
     // errors, then this will return an error.
     let env_filter = env_filter
         .try_from_env()
-        .or_else(|_| env_filter.with_env_var(LOG_ENV.clone()).from_env())?;
+        .or_else(|_| env_filter.with_env_var(LOG_ENV.clone()).from_env())?
+        .add_directive("matrix_sdk=error".parse()?);
     let file_subscriber = fmt::layer()
         .with_file(true)
         .with_line_number(true)
