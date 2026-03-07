@@ -105,9 +105,6 @@ impl MatrixThread {
     fn add_event_handlers(&self) -> Result<()> {
         self.client.add_event_handler_context(self.context.clone());
 
-        // self.client.add_event_handler(
-        //     |event: SyncRoomMessageEvent, context: Ctx<MatrixContext>| async move {},
-        // );
         self.client.add_event_handler(|event: OriginalSyncRoomMessageEvent, room: Room, context: Ctx<MatrixContext>| async move {
             if let Err(err) = context.on_room_message(event, room).await {
                 error!("Failed to handle room message: {}", err);
@@ -157,7 +154,7 @@ impl MatrixThread {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
+    #[allow(clippy::unused_self, clippy::unnecessary_wraps)]
     fn handle_stream_timeline_event(&self, event: &TimelineEvent) -> Result<()> {
         let Ok(event) = event.raw().deserialize() else {
             warn!("Failed to deserialize timeline event: {:?}", event);
@@ -169,7 +166,6 @@ impl MatrixThread {
         Ok(())
     }
 
-    #[allow(clippy::unnecessary_wraps, clippy::unused_self)]
     fn handle_sync_stream_response(&self, response: &SyncResponse) -> Result<()> {
         for room in response.rooms.joined.values() {
             for e in &room.timeline.events {
@@ -232,7 +228,11 @@ impl MatrixThread {
                     }
                 },
                 Some(Ok(response)) = sync_stream.next() => {
-                    if let Err(err) = self.handle_sync_stream_response(&response) {
+                    // I don't know why. I don't want to know why. I shouldn't have to wonder why.
+                    // Why does having a `.into()` get rid of the "Expected &SyncResponse, found &SyncResponse"
+                    // error from rust analyzer, specifically in VSCode-like environments?
+                    #[allow(clippy::useless_conversion)]
+                    if let Err(err) = self.handle_sync_stream_response(&response.into()) {
                         error!("Failed to handle matrix sync stream response: {}", err);
                     }
                 }
