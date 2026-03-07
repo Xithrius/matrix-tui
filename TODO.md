@@ -2,3 +2,7 @@
 - [ ] Chat input text wrapping
 - [ ] Minimal UI similar to IRC clients
 - [ ] [Session persistence](https://github.com/matrix-org/matrix-rust-sdk/tree/main/examples/persist_session)
+    - [ ] Adapt the example to the repository
+    - [ ] Make sure E2EE is enabled and working properly
+    - [ ] Loading/status for the user so they know the progress of authentication or loading
+- [ ] Fix pause after terminal is closed
