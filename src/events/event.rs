@@ -22,5 +22,6 @@ pub enum Event {
 pub enum InternalEvent {
     SwitchMode(Mode),
     SendMessage(String),
+    SwitchRoom(String),
     Quit,
 }

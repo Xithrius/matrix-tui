@@ -11,14 +11,14 @@ pub enum MatrixEvent {
 }
 
 #[derive(Clone, Debug)]
-#[allow(dead_code)]
 pub enum MatrixAction {
     SelectLogin {
         choice: LoginChoice,
         credentials: Option<LoginCredentials>,
     },
+    #[allow(dead_code)]
     GetRooms,
-    ChangeRoom(String),
+    GetRoomMessages(String),
     SendMessage {
         room_id: String,
         message_body: String,
@@ -27,6 +27,10 @@ pub enum MatrixAction {
 
 #[derive(Clone, Debug)]
 pub enum MatrixNotification {
+    #[allow(dead_code)]
+    RestoringSession,
+    #[allow(dead_code)]
+    SuccessfulSessionRestore,
     LoginChoices(Vec<LoginChoice>),
     /// The login choice selected was successful in authentication,
     /// and the matrix task can now listen for more events besides logging in.
@@ -35,6 +39,10 @@ pub enum MatrixNotification {
     ///
     /// This includes joined, invited, and left rooms.
     KnownRooms(Vec<MatrixRoom>),
+    RoomMessages {
+        room_id: String,
+        messages: Vec<MatrixMessage>,
+    },
     Message {
         room_id: String,
         message: MatrixMessage,

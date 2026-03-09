@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
-use tracing::{debug, error};
+use tracing::{debug, error, info};
 use tui::{
     DefaultTerminal, Frame,
     crossterm::event::{Event as CrosstermEvent, KeyEvent, KeyEventKind},
@@ -30,7 +30,7 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(config: &CoreConfig) -> Result<Self> {
+    pub fn new(config: &CoreConfig) -> Result<Self> {
         let (event_tx, event_rx) = channel(100);
         let (matrix_tx, matrix_rx) = channel(100);
         let mode = Mode::default();
@@ -38,7 +38,7 @@ impl App {
         let ui = Ui::new(event_tx.clone(), mode.clone());
 
         let events = EventHandler::new(config, event_tx.clone(), event_rx);
-        MatrixHandler::new(config, event_tx.clone(), matrix_rx).await?;
+        MatrixHandler::new(config, event_tx.clone(), matrix_rx)?;
 
         Ok(Self {
             config: config.clone(),
@@ -80,7 +80,7 @@ impl App {
             }
             InternalEvent::SendMessage(content) => {
                 // TODO: Add to app context and pass reference to messages UI
-                let Some(room_id) = self.ui.navigation.rooms.selected_room_id() else {
+                let Some(room_id) = self.ui.navigation.rooms.get_selected_room_id() else {
                     error!("Could not find selected room ID when sending message");
                     return Ok(());
                 };
@@ -97,6 +97,11 @@ impl App {
                         message_body: content,
                     })
                     .await?;
+            }
+            InternalEvent::SwitchRoom(room_id) => {
+                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
+                self.ui.navigation.rooms.set_selected_room_id(&room_id);
+                self.ui.messages.set_selected_room_id(room_id);
             }
         }
 
@@ -118,6 +123,12 @@ impl App {
 
     async fn handle_matrix_notification(&mut self, notification: MatrixNotification) -> Result<()> {
         match notification {
+            MatrixNotification::RestoringSession => {
+                todo!();
+            }
+            MatrixNotification::SuccessfulSessionRestore => {
+                todo!();
+            }
             MatrixNotification::LoginChoices(login_choices) => {
                 self.ui.authentication.set_login_choices(login_choices);
             }
@@ -129,11 +140,31 @@ impl App {
                 self.switch_mode(Mode::Messages).await?;
             }
             MatrixNotification::KnownRooms(rooms) => {
-                for room in rooms {
-                    self.ui.navigation.rooms.push_room(room.id.clone(), room);
-                }
+                let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {
+                    return Ok(());
+                };
 
-                self.ui.messages.ensure_selected_room_id();
+                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
+                self.ui.navigation.rooms.set_selected_room_id(&first_room);
+                self.ui.messages.set_selected_room_id(first_room);
+
+                for room in rooms {
+                    let room_id = room.id.clone();
+                    self.ui.navigation.rooms.push_room(room_id.clone(), room);
+
+                    self.event_tx
+                        .send(Event::Matrix(MatrixEvent::Action(
+                            MatrixAction::GetRoomMessages(room_id),
+                        )))
+                        .await?;
+                }
+            }
+            MatrixNotification::RoomMessages { room_id, messages } => {
+                info!("Found {} message(s) for room {}", messages.len(), room_id);
+
+                for message in messages {
+                    self.ui.messages.push_message(room_id.clone(), message);
+                }
             }
         }
 
@@ -178,27 +209,24 @@ impl App {
         debug!("Switching to mode: {:?}", mode);
 
         match &mode {
-            Mode::Messages => {}
             Mode::Input => self.ui.input.set_focused(true),
             Mode::Login(login_mode) => {
                 // TODO: Find where completed entering of credentials can be handled
-                if matches!(login_mode, LoginMode::Completed) {
-                    if let Some(login_choice) = self.ui.authentication.selected_login_choice() {
-                        let credentials = self.ui.authentication.get_login_credentials();
-                        let matrix_action =
-                            Event::Matrix(MatrixEvent::Action(MatrixAction::SelectLogin {
-                                choice: login_choice,
-                                credentials,
-                            }));
-                        self.event_tx.send(matrix_action).await?;
-                    }
+                if matches!(login_mode, LoginMode::Completed)
+                    && let Some(login_choice) = self.ui.authentication.selected_login_choice()
+                {
+                    let credentials = self.ui.authentication.get_login_credentials();
+                    let matrix_action =
+                        Event::Matrix(MatrixEvent::Action(MatrixAction::SelectLogin {
+                            choice: login_choice,
+                            credentials,
+                        }));
+                    self.event_tx.send(matrix_action).await?;
                 }
 
                 self.ui.authentication.set_login_mode(login_mode.clone());
             }
-            Mode::RoomNavigation => {
-                self.ui.navigation.rooms.ensure_initial_selection();
-            }
+            Mode::Messages | Mode::RoomNavigation => {}
         }
 
         self.ui.header.set_mode(mode.clone());
