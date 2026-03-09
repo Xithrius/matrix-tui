@@ -1,6 +1,7 @@
+use chrono::Local;
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
-use tracing::{debug, error, info};
+use tracing::{debug, error};
 use tui::{
     DefaultTerminal, Frame,
     crossterm::event::{Event as CrosstermEvent, KeyEvent, KeyEventKind},
@@ -85,8 +86,9 @@ impl App {
                     return Ok(());
                 };
 
+                let datetime = Local::now().format("%c").to_string();
                 let name = self.config.matrix.username.clone();
-                let matrix_message = MatrixMessage::new(name, content.clone());
+                let matrix_message = MatrixMessage::new(datetime, name, content.clone());
                 self.ui
                     .messages
                     .push_message(room_id.clone(), matrix_message);
@@ -160,8 +162,6 @@ impl App {
                 }
             }
             MatrixNotification::RoomMessages { room_id, messages } => {
-                info!("Found {} message(s) for room {}", messages.len(), room_id);
-
                 for message in messages {
                     self.ui.messages.push_message(room_id.clone(), message);
                 }

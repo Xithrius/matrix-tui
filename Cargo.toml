@@ -32,6 +32,7 @@ toml = "0.9.10"
 url = "2.5.8"
 futures-util = "0.3.32"
 rand = "0.8.5"
+chrono = "0.4.44"
 
 [profile.dev]
 lto = "off"

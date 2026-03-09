@@ -11,6 +11,7 @@ use crate::{
         event::{MatrixEvent, MatrixNotification},
         models::MatrixMessage,
     },
+    utils::ChronoExt,
 };
 
 #[derive(Debug, Clone)]
@@ -33,9 +34,12 @@ impl MatrixContext {
             return Ok(());
         }
 
-        let MessageType::Text(msgtype) = &event.content.msgtype else {
+        let MessageType::Text(text_message) = &event.content.msgtype else {
             return Ok(());
         };
+
+        let datetime = event.origin_server_ts.origin_server_chrono()?;
+        let formatted_datetime = datetime.format("%c").to_string();
 
         let member = room
             .get_member(&event.sender)
@@ -43,7 +47,11 @@ impl MatrixContext {
             .context("The room member doesn't exist")?;
         let name = member.name();
 
-        let message = MatrixMessage::new(name.to_owned(), msgtype.body.clone());
+        let message = MatrixMessage::new(
+            formatted_datetime,
+            name.to_owned(),
+            text_message.body.clone(),
+        );
 
         let room_message_event =
             Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {

@@ -2,7 +2,10 @@
 - [ ] Chat input text wrapping
 - [ ] Minimal UI similar to IRC clients
 - [ ] [Session persistence](https://github.com/matrix-org/matrix-rust-sdk/tree/main/examples/persist_session)
-    - [ ] Adapt the example to the repository
+    - [x] Adapt the example to the repository
     - [ ] Make sure E2EE is enabled and working properly
     - [ ] Loading/status for the user so they know the progress of authentication or loading
+    - [ ] Host verification with one of these examples
+        - [Emoji verification](https://github.com/matrix-org/matrix-rust-sdk/blob/main/examples/emoji_verification/src/main.rs)
+        - [Cross signing bootstrap](https://github.com/matrix-org/matrix-rust-sdk/blob/main/examples/cross_signing_bootstrap/src/main.rs)
 - [ ] Fix pause after terminal is closed

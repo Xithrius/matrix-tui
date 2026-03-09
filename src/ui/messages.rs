@@ -1,4 +1,7 @@
-use std::collections::{BTreeMap, VecDeque};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    sync::LazyLock,
+};
 
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
@@ -13,6 +16,9 @@ use crate::{
     matrix::models::MatrixMessage,
     ui::component::Component,
 };
+
+static DATETIME_STYLE: LazyLock<Style> =
+    LazyLock::new(|| Style::default().fg(Color::Rgb(173, 173, 184)));
 
 pub struct MessagesWidget {
     event_tx: Sender<Event>,
@@ -124,13 +130,18 @@ impl Component for MessagesWidget {
             .iter()
             .map(|message| {
                 let cells = vec![
+                    Cell::from(message.datetime.clone()).style(*DATETIME_STYLE),
                     Cell::from(message.name.clone()),
                     Cell::from(message.content.clone()),
                 ];
                 Row::new(cells)
             })
             .collect();
-        let widths = [Constraint::Length(20), Constraint::Percentage(100)];
+        let widths = [
+            Constraint::Length(20),
+            Constraint::Length(20),
+            Constraint::Percentage(100),
+        ];
         let table = Table::new(rows, widths)
             .block(
                 Block::new()

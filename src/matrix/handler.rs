@@ -41,6 +41,7 @@ use crate::{
         models::{MatrixMessage, MatrixRoom},
         session::{ClientSession, FullSession, build_client, persist_sync_token},
     },
+    utils::ChronoExt,
 };
 
 #[derive(Debug)]
@@ -151,6 +152,13 @@ impl MatrixThread {
         Ok(())
     }
 
+    fn insert_rooms(&mut self, rooms: &[Room]) {
+        for room in rooms {
+            let room_id = room.room_id().to_string();
+            self.rooms.entry(room_id).or_insert_with(|| room.clone());
+        }
+    }
+
     async fn send_message(&self, room_id: &String, message_body: &String) -> Result<()> {
         let Some(room) = self.rooms.get(room_id) else {
             return Ok(());
@@ -163,7 +171,7 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn handle_matrix_action(&self, action: &MatrixAction) -> Result<()> {
+    async fn handle_matrix_action(&mut self, action: &MatrixAction) -> Result<()> {
         let client = self
             .client
             .as_ref()
@@ -171,8 +179,9 @@ impl MatrixThread {
 
         match action {
             MatrixAction::GetRooms => {
-                let known_rooms: Vec<MatrixRoom> =
-                    client.rooms().iter().cloned().map(Into::into).collect();
+                let rooms = client.rooms();
+                self.insert_rooms(&rooms);
+                let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
 
                 self.event_tx
                     .send(Event::Matrix(MatrixEvent::Notification(
@@ -214,10 +223,25 @@ impl MatrixThread {
                         continue;
                     };
 
+                    let datetime = match m.origin_server_ts.origin_server_chrono() {
+                        Ok(datetime) => datetime.format("%c"),
+                        Err(err) => {
+                            error!(
+                                "Failed to convert origin server timestamp to datetime: {}",
+                                err
+                            );
+                            continue;
+                        }
+                    };
+
                     let name = m.sender.localpart();
                     let content = m.content.body();
 
-                    let message = MatrixMessage::new(name.to_owned(), content.to_owned());
+                    let message = MatrixMessage::new(
+                        datetime.to_string(),
+                        name.to_owned(),
+                        content.to_owned(),
+                    );
                     messages.push(message);
                 }
 
@@ -360,7 +384,9 @@ impl MatrixThread {
         settings = settings.token(sync_token.clone());
         persist_sync_token(&session_file, sync_token).await?;
 
-        let known_rooms: Vec<MatrixRoom> = client.rooms().iter().cloned().map(Into::into).collect();
+        let rooms = client.rooms();
+        self.insert_rooms(&rooms);
+        let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
         self.event_tx
             .send(Event::Matrix(MatrixEvent::Notification(
                 MatrixNotification::KnownRooms(known_rooms),

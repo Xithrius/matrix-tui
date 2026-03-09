@@ -15,6 +15,7 @@ mod events;
 mod logging;
 mod matrix;
 mod ui;
+mod utils;
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -2599,6 +2599,7 @@ dependencies = [
 name = "matrix-tui"
 version = "0.0.0"
 dependencies = [
+ "chrono",
  "clap",
  "color-eyre",
  "config",
