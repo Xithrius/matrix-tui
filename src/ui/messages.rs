@@ -1,7 +1,4 @@
-use std::{
-    collections::{BTreeMap, VecDeque},
-    string::ToString,
-};
+use std::collections::{BTreeMap, VecDeque};
 
 use color_eyre::Result;
 use tokio::sync::mpsc::Sender;
@@ -21,8 +18,9 @@ pub struct MessagesWidget {
     event_tx: Sender<Event>,
     table_state: TableState,
 
-    selected_room_id: Option<String>,
     messages: BTreeMap<String, VecDeque<MatrixMessage>>,
+    selected_room_id: Option<String>,
+    selected_room_messages: Option<VecDeque<MatrixMessage>>,
 }
 
 impl MessagesWidget {
@@ -30,29 +28,31 @@ impl MessagesWidget {
         Self {
             event_tx,
             table_state: TableState::default(),
-            selected_room_id: None,
             messages: BTreeMap::default(),
+            selected_room_id: None,
+            selected_room_messages: None,
         }
     }
 
     #[allow(dead_code)]
-    pub fn set_selected_room_id(&mut self, room_id: String) {
-        self.selected_room_id = Some(room_id);
+    pub fn get_selected_room_id(&self) -> Option<String> {
+        self.selected_room_id.clone()
     }
 
-    pub fn ensure_selected_room_id(&mut self) {
-        if self.selected_room_id.is_some() {
-            return;
-        }
+    pub fn set_selected_room_id(&mut self, room_id: String) {
+        self.selected_room_id = Some(room_id);
 
-        let first_room_id = self
-            .messages
-            .keys()
-            .collect::<Vec<&String>>()
-            .first()
-            .map(ToString::to_string);
+        let selected_room_messages = if let Some(selected_room_id) = self.selected_room_id.as_ref()
+        {
+            self.messages
+                .get(selected_room_id)
+                .cloned()
+                .unwrap_or_default()
+        } else {
+            VecDeque::new()
+        };
 
-        self.selected_room_id = first_room_id;
+        self.selected_room_messages = Some(selected_room_messages);
     }
 
     pub fn push_message(&mut self, room_id: String, message: MatrixMessage) {
@@ -66,7 +66,7 @@ impl Component for MessagesWidget {
 
         let contains_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if contains_ctrl {
-            if key.code == KeyCode::Char(' ') {
+            if key.code == KeyCode::Char('r') {
                 self.event_tx
                     .send(Event::Internal(InternalEvent::SwitchMode(
                         Mode::RoomNavigation,
@@ -108,17 +108,19 @@ impl Component for MessagesWidget {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let selected_room_id = self.selected_room_id.as_ref();
-        let room_messages = if let Some(selected_room_id) = selected_room_id {
-            self.messages
-                .get(selected_room_id)
-                .cloned()
-                .unwrap_or_default()
-        } else {
-            VecDeque::new()
-        };
+        let selected_room_messages = self.selected_room_messages.clone().unwrap_or_default();
 
-        let rows: Vec<Row> = room_messages
+        let title = self.selected_room_id.clone().map_or_else(
+            || "Messages".to_string(),
+            |selected_room| {
+                format!(
+                    "Messages in {selected_room}: {}",
+                    selected_room_messages.len()
+                )
+            },
+        );
+
+        let rows: Vec<Row> = selected_room_messages
             .iter()
             .map(|message| {
                 let cells = vec![
@@ -132,7 +134,7 @@ impl Component for MessagesWidget {
         let table = Table::new(rows, widths)
             .block(
                 Block::new()
-                    .title("Messages")
+                    .title(title)
                     .borders(Borders::ALL)
                     .border_type(BorderType::Rounded),
             )

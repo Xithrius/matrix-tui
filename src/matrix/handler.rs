@@ -8,10 +8,18 @@ use futures_util::StreamExt;
 use matrix_sdk::{
     Client, Room,
     config::SyncSettings,
+    deserialized_responses::TimelineEventKind,
     event_handler::Ctx,
+    room::MessagesOptions,
     ruma::{
-        api::client::{filter::FilterDefinition, session::get_login_types::v3::LoginType},
-        events::room::message::{OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+        api::{
+            Direction,
+            client::{filter::FilterDefinition, session::get_login_types::v3::LoginType},
+        },
+        events::{
+            AnyMessageLikeEvent, AnyTimelineEvent, MessageLikeEvent,
+            room::message::{OriginalSyncRoomMessageEvent, RoomMessageEventContent},
+        },
         exports::serde_json,
     },
     sync::SyncResponse,
@@ -30,7 +38,7 @@ use crate::{
     matrix::{
         context::MatrixContext,
         login::LoginChoice,
-        models::MatrixRoom,
+        models::{MatrixMessage, MatrixRoom},
         session::{ClientSession, FullSession, build_client, persist_sync_token},
     },
 };
@@ -178,7 +186,51 @@ impl MatrixThread {
             } => {
                 self.send_message(room_id, message_body).await?;
             }
-            _ => {}
+            MatrixAction::GetRoomMessages(room_id) => {
+                let rooms = client.rooms();
+                let Some(room) = rooms.iter().find(|room| room.room_id() == room_id) else {
+                    return Ok(());
+                };
+
+                let message_filter_options = MessagesOptions::new(Direction::Backward);
+
+                let room_messages = room.messages(message_filter_options).await?;
+                let mut messages = Vec::new();
+                for event in &room_messages.chunk {
+                    let deserialized_event = match &event.kind {
+                        TimelineEventKind::Decrypted(decrypted_room_event) => {
+                            decrypted_room_event.event.deserialize()?
+                        }
+                        TimelineEventKind::UnableToDecrypt { event, utd_info: _ }
+                        | TimelineEventKind::PlainText { event } => {
+                            event.deserialize()?.into_full_event(room.room_id().into())
+                        }
+                    };
+
+                    let AnyTimelineEvent::MessageLike(AnyMessageLikeEvent::RoomMessage(
+                        MessageLikeEvent::Original(m),
+                    )) = deserialized_event
+                    else {
+                        continue;
+                    };
+
+                    let name = m.sender.localpart();
+                    let content = m.content.body();
+
+                    let message = MatrixMessage::new(name.to_owned(), content.to_owned());
+                    messages.push(message);
+                }
+
+                self.event_tx
+                    .send(Event::Matrix(MatrixEvent::Notification(
+                        MatrixNotification::RoomMessages {
+                            room_id: room_id.clone(),
+                            messages,
+                        },
+                    )))
+                    .await?;
+            }
+            MatrixAction::SelectLogin { .. } => {}
         }
 
         Ok(())
@@ -248,6 +300,8 @@ impl MatrixThread {
             sync_token,
         } = serde_json::from_str(&serialized_session)?;
 
+        info!("Restoring session for {}...", user_session.meta.user_id);
+
         // Build the client with the previous settings from the session.
         let client = Client::builder()
             .homeserver_url(client_session.homeserver.clone())
@@ -258,9 +312,6 @@ impl MatrixThread {
             .build()
             .await?;
 
-        info!("Restoring session for {}...", user_session.meta.user_id);
-
-        // Restore the Matrix user session.
         client.restore_session(user_session).await?;
 
         self.client = Some(client);
@@ -272,6 +323,8 @@ impl MatrixThread {
                 MatrixNotification::SuccessfulLogin,
             )))
             .await?;
+
+        info!("Completed restoring session");
 
         Ok(())
     }

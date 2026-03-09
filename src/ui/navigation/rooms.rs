@@ -16,9 +16,11 @@ use crate::{
 
 pub struct RoomNavigationWidget {
     event_tx: Sender<Event>,
+    // TODO: BTreeMap is probably not needed here, use a vector
     rooms: BTreeMap<String, MatrixRoom>,
 
     list_state: ListState,
+    selected_room_id: Option<String>,
 }
 
 impl RoomNavigationWidget {
@@ -28,14 +30,19 @@ impl RoomNavigationWidget {
             rooms: BTreeMap::default(),
 
             list_state: ListState::default(),
+            selected_room_id: None,
         }
     }
 
-    pub const fn ensure_initial_selection(&mut self) {
-        let selected = self.list_state.selected();
-        if selected.is_none() {
-            self.list_state.select(Some(0));
-        }
+    pub fn get_selected_room_id(&self) -> Option<String> {
+        let selected = self.list_state.selected()?;
+        self.rooms.keys().nth(selected).cloned()
+    }
+
+    pub fn set_selected_room_id(&mut self, room_id: &String) {
+        let selected_index = self.rooms.keys().position(|k| k.as_str() == room_id);
+        self.list_state.select(selected_index);
+        self.selected_room_id = Some(room_id.clone());
     }
 
     pub fn push_room(&mut self, room_id: String, room: MatrixRoom) {
@@ -45,12 +52,6 @@ impl RoomNavigationWidget {
     #[allow(dead_code)]
     pub fn remove_room(&mut self, room_id: &String) {
         self.rooms.remove(room_id);
-    }
-
-    pub fn selected_room_id(&self) -> Option<String> {
-        let selected = self.list_state.selected()?;
-
-        self.rooms.keys().nth(selected).cloned()
     }
 }
 
@@ -77,6 +78,19 @@ impl Component for RoomNavigationWidget {
                 let index = index.unwrap_or(0).saturating_add(1);
                 self.list_state.select(Some(index));
             }
+            KeyCode::Enter => {
+                let Some(selected) = self.list_state.selected() else {
+                    return Ok(());
+                };
+
+                let Some(room_id) = self.rooms.keys().nth(selected) else {
+                    return Ok(());
+                };
+
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::SwitchRoom(room_id.clone())))
+                    .await?;
+            }
             _ => {}
         }
 
@@ -89,7 +103,17 @@ impl Component for RoomNavigationWidget {
             .values()
             .map(|room| {
                 let line_item = room.name.clone().unwrap_or_else(|| room.id.clone());
-                ListItem::new(vec![Line::from(line_item)])
+                let mut list_item = ListItem::new(vec![Line::from(line_item)]);
+
+                let is_selected_room = self
+                    .selected_room_id
+                    .as_ref()
+                    .is_some_and(|room_id| *room_id == room.id);
+                if is_selected_room {
+                    list_item = list_item.style(Style::default().bg(Color::LightGreen));
+                }
+
+                list_item
             })
             .collect();
 
