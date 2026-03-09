@@ -65,6 +65,11 @@ impl Component for RoomNavigationWidget {
                     .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))
                     .await?;
             }
+            KeyCode::Char('i') => {
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
+                    .await?;
+            }
             KeyCode::Up => {
                 let index = index.unwrap_or(0).saturating_sub(1);
                 self.list_state.select(Some(index));
