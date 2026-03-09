@@ -61,8 +61,20 @@ impl MessagesWidget {
         self.selected_room_messages = Some(selected_room_messages);
     }
 
-    pub fn push_message(&mut self, room_id: String, message: MatrixMessage) {
-        self.messages.entry(room_id).or_default().push_back(message);
+    pub fn push_message(&mut self, room_id: &String, message: MatrixMessage) {
+        self.messages
+            .entry(room_id.clone())
+            .or_default()
+            .push_front(message.clone());
+
+        if self
+            .selected_room_id
+            .as_ref()
+            .is_some_and(|selected_room_id| selected_room_id == room_id)
+            && let Some(selected_room_messages) = self.selected_room_messages.as_mut()
+        {
+            selected_room_messages.push_back(message);
+        }
     }
 }
 

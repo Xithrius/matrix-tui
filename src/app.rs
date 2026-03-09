@@ -1,4 +1,3 @@
-use chrono::Local;
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, error};
@@ -14,13 +13,11 @@ use crate::{
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
-        models::MatrixMessage,
     },
     ui::{Component, Ui},
 };
 
 pub struct App {
-    config: CoreConfig,
     running: bool,
     events: EventHandler,
     event_tx: Sender<Event>,
@@ -42,7 +39,6 @@ impl App {
         MatrixHandler::new(config, event_tx.clone(), matrix_rx)?;
 
         Ok(Self {
-            config: config.clone(),
             running: true,
             events,
             event_tx,
@@ -85,13 +81,6 @@ impl App {
                     error!("Could not find selected room ID when sending message");
                     return Ok(());
                 };
-
-                let datetime = Local::now().format("%c").to_string();
-                let name = self.config.matrix.username.clone();
-                let matrix_message = MatrixMessage::new(datetime, name, content.clone());
-                self.ui
-                    .messages
-                    .push_message(room_id.clone(), matrix_message);
 
                 self.matrix_tx
                     .send(MatrixAction::SendMessage {
@@ -136,7 +125,7 @@ impl App {
             }
             MatrixNotification::Message { room_id, message } => {
                 // TODO: Add to app context and pass reference to messages UI
-                self.ui.messages.push_message(room_id, message);
+                self.ui.messages.push_message(&room_id, message);
             }
             MatrixNotification::SuccessfulLogin => {
                 self.switch_mode(Mode::Messages).await?;
@@ -163,7 +152,7 @@ impl App {
             }
             MatrixNotification::RoomMessages { room_id, messages } => {
                 for message in messages {
-                    self.ui.messages.push_message(room_id.clone(), message);
+                    self.ui.messages.push_message(&room_id, message);
                 }
             }
         }

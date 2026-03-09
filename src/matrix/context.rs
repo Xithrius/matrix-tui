@@ -1,4 +1,4 @@
-use color_eyre::{Result, eyre::ContextCompat};
+use color_eyre::Result;
 use matrix_sdk::{
     Room, RoomState,
     ruma::events::room::message::{MessageType, OriginalSyncRoomMessageEvent},
@@ -40,18 +40,10 @@ impl MatrixContext {
 
         let datetime = event.origin_server_ts.origin_server_chrono()?;
         let formatted_datetime = datetime.format("%c").to_string();
+        let name = event.sender.localpart();
+        let content = text_message.body.clone();
 
-        let member = room
-            .get_member(&event.sender)
-            .await?
-            .context("The room member doesn't exist")?;
-        let name = member.name();
-
-        let message = MatrixMessage::new(
-            formatted_datetime,
-            name.to_owned(),
-            text_message.body.clone(),
-        );
+        let message = MatrixMessage::new(formatted_datetime, name.to_owned(), content);
 
         let room_message_event =
             Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {
