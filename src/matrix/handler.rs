@@ -178,6 +178,13 @@ impl MatrixThread {
             .context("Could not get client for handling matrix action")?;
 
         match action {
+            MatrixAction::StartRestoreSession => {
+                todo!();
+            }
+            MatrixAction::StartLoggingIn => {
+                todo!();
+            }
+            MatrixAction::SelectLogin { .. } => {}
             MatrixAction::GetRooms => {
                 let rooms = client.rooms();
                 self.insert_rooms(&rooms);
@@ -254,7 +261,6 @@ impl MatrixThread {
                     )))
                     .await?;
             }
-            MatrixAction::SelectLogin { .. } => {}
         }
 
         Ok(())
@@ -268,6 +274,12 @@ impl MatrixThread {
     }
 
     async fn attempt_login(&mut self, data_dir: &Path) -> Result<()> {
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::LoggingIn,
+            )))
+            .await?;
+
         let (client, client_session) = build_client(data_dir, self.homeserver.clone()).await?;
 
         self.send_login_choices(&client).await?;
@@ -312,10 +324,22 @@ impl MatrixThread {
         self.client = Some(client);
         self.client_session = Some(client_session);
 
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::SuccessfulLogin,
+            )))
+            .await?;
+
         Ok(())
     }
 
     async fn attempt_session_restore(&mut self, session_file: &Path) -> Result<()> {
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::RestoringSession,
+            )))
+            .await?;
+
         // The session was serialized as JSON in a file.
         let serialized_session = fs::read_to_string(session_file).await?;
         let FullSession {
@@ -344,7 +368,7 @@ impl MatrixThread {
 
         self.event_tx
             .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
+                MatrixNotification::SuccessfulSessionRestore,
             )))
             .await?;
 
@@ -359,6 +383,7 @@ impl MatrixThread {
         let data_dir = get_data_dir().join("persist_session");
         let session_file = data_dir.join("session");
 
+        // TODO: Handle errors via sending information through the event sender
         if session_file.exists() {
             self.attempt_session_restore(&session_file).await?;
         } else {

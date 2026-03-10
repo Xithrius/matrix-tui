@@ -114,6 +114,9 @@ impl App {
 
     async fn handle_matrix_notification(&mut self, notification: MatrixNotification) -> Result<()> {
         match notification {
+            MatrixNotification::LoggingIn => {
+                todo!();
+            }
             MatrixNotification::RestoringSession => {
                 todo!();
             }
