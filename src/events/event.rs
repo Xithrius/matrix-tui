@@ -25,3 +25,9 @@ pub enum InternalEvent {
     SwitchRoom(String),
     Quit,
 }
+
+impl From<InternalEvent> for Event {
+    fn from(value: InternalEvent) -> Self {
+        Self::Internal(value)
+    }
+}

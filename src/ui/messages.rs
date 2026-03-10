@@ -12,7 +12,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent, Mode},
+    events::{Event, InternalEvent, Mode, SenderExt},
     matrix::models::MatrixMessage,
     ui::component::Component,
 };
@@ -85,9 +85,7 @@ impl Component for MessagesWidget {
         let contains_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
         if contains_ctrl && key.code == KeyCode::Char('r') {
             self.event_tx
-                .send(Event::Internal(InternalEvent::SwitchMode(
-                    Mode::RoomNavigation,
-                )))
+                .send_into(InternalEvent::SwitchMode(Mode::RoomNavigation))
                 .await?;
 
             return Ok(());
@@ -95,9 +93,7 @@ impl Component for MessagesWidget {
 
         match key.code {
             KeyCode::Esc | KeyCode::Char('q') => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::Quit))
-                    .await?;
+                self.event_tx.send_into(InternalEvent::Quit).await?;
             }
             KeyCode::Up => {
                 let index = index.unwrap_or(0).saturating_sub(1);
@@ -114,7 +110,7 @@ impl Component for MessagesWidget {
             }
             KeyCode::Char('i') => {
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
+                    .send_into(InternalEvent::SwitchMode(Mode::Input))
                     .await?;
             }
             _ => {}

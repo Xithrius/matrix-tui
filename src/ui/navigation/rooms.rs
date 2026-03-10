@@ -9,7 +9,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent, Mode},
+    events::{Event, InternalEvent, Mode, SenderExt},
     matrix::models::MatrixRoom,
     ui::component::Component,
 };
@@ -62,12 +62,12 @@ impl Component for RoomNavigationWidget {
         match key.code {
             KeyCode::Esc => {
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))
+                    .send_into(InternalEvent::SwitchMode(Mode::Messages))
                     .await?;
             }
             KeyCode::Char('i') => {
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
+                    .send_into(InternalEvent::SwitchMode(Mode::Input))
                     .await?;
             }
             KeyCode::Up => {
@@ -93,7 +93,7 @@ impl Component for RoomNavigationWidget {
                 };
 
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchRoom(room_id.clone())))
+                    .send_into(InternalEvent::SwitchRoom(room_id.clone()))
                     .await?;
             }
             _ => {}

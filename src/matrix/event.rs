@@ -1,12 +1,21 @@
-use crate::matrix::{
-    login::{LoginChoice, LoginCredentials},
-    models::{MatrixMessage, MatrixRoom},
+use crate::{
+    events::Event,
+    matrix::{
+        login::{LoginChoice, LoginCredentials},
+        models::{MatrixMessage, MatrixRoom},
+    },
 };
 
 #[derive(Clone, Debug)]
 pub enum MatrixEvent {
     Action(MatrixAction),
     Notification(MatrixNotification),
+}
+
+impl From<MatrixEvent> for Event {
+    fn from(value: MatrixEvent) -> Self {
+        Self::Matrix(value)
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -24,6 +33,12 @@ pub enum MatrixAction {
         room_id: String,
         message_body: String,
     },
+}
+
+impl From<MatrixAction> for Event {
+    fn from(value: MatrixAction) -> Self {
+        Self::Matrix(MatrixEvent::Action(value))
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -51,4 +66,10 @@ pub enum MatrixNotification {
         room_id: String,
         message: MatrixMessage,
     },
+}
+
+impl From<MatrixNotification> for Event {
+    fn from(value: MatrixNotification) -> Self {
+        Self::Matrix(MatrixEvent::Notification(value))
+    }
 }

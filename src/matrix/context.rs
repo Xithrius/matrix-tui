@@ -6,11 +6,8 @@ use matrix_sdk::{
 use tokio::sync::mpsc::Sender;
 
 use crate::{
-    events::Event,
-    matrix::{
-        event::{MatrixEvent, MatrixNotification},
-        models::MatrixMessage,
-    },
+    events::{Event, SenderExt},
+    matrix::{event::MatrixNotification, models::MatrixMessage},
     utils::ChronoExt,
 };
 
@@ -45,12 +42,11 @@ impl MatrixContext {
 
         let message = MatrixMessage::new(formatted_datetime, name.to_owned(), content);
 
-        let room_message_event =
-            Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {
-                room_id: room.room_id().to_string(),
-                message,
-            }));
-        self.event_tx.send(room_message_event).await?;
+        let message_event = MatrixNotification::Message {
+            room_id: room.room_id().to_string(),
+            message,
+        };
+        self.event_tx.send_into(message_event).await?;
 
         Ok(())
     }

@@ -9,7 +9,7 @@ use tui::{
 
 use crate::{
     config::CoreConfig,
-    events::{Event, EventHandler, InternalEvent, LoginMode, Mode},
+    events::{Event, EventHandler, InternalEvent, LoginMode, Mode, SenderExt},
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
@@ -147,9 +147,7 @@ impl App {
                     self.ui.navigation.rooms.push_room(room_id.clone(), room);
 
                     self.event_tx
-                        .send(Event::Matrix(MatrixEvent::Action(
-                            MatrixAction::GetRoomMessages(room_id),
-                        )))
+                        .send_into(MatrixAction::GetRoomMessages(room_id))
                         .await?;
                 }
             }

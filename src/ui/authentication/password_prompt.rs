@@ -6,7 +6,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent, LoginMode, Mode},
+    events::{Event, InternalEvent, LoginMode, Mode, SenderExt},
     ui::{component::Component, user_input::UserInputWidget},
 };
 
@@ -48,9 +48,9 @@ impl Component for PasswordPromptWidget {
                 self.input.set_focused(false);
                 self.input.clear();
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
+                    .send_into(InternalEvent::SwitchMode(Mode::Login(
                         LoginMode::SelectLoginChoice,
-                    ))))
+                    )))
                     .await?;
             }
             KeyCode::Enter => {
@@ -63,9 +63,7 @@ impl Component for PasswordPromptWidget {
                 self.input.clear();
 
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
-                        LoginMode::Completed,
-                    ))))
+                    .send_into(InternalEvent::SwitchMode(Mode::Login(LoginMode::Completed)))
                     .await?;
             }
             _ => {

@@ -10,7 +10,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent, LoginMode, Mode},
+    events::{Event, InternalEvent, LoginMode, Mode, SenderExt},
     matrix::login::LoginChoice,
     ui::component::Component,
 };
@@ -49,9 +49,7 @@ impl Component for LoginChoicePromptWidget {
 
         match key.code {
             KeyCode::Esc => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::Quit))
-                    .await?;
+                self.event_tx.send_into(InternalEvent::Quit).await?;
             }
             KeyCode::Up => {
                 let index = index.unwrap_or(0).saturating_sub(1);
@@ -70,9 +68,9 @@ impl Component for LoginChoicePromptWidget {
                 self.selected_login_choice = self.login_choices.get(index.unwrap_or(0)).cloned();
                 debug!("Selected login choice: {:?}", self.selected_login_choice);
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
+                    .send_into(InternalEvent::SwitchMode(Mode::Login(
                         LoginMode::UsernamePrompt,
-                    ))))
+                    )))
                     .await?;
             }
             _ => {}

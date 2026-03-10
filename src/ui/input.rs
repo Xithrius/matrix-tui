@@ -6,7 +6,7 @@ use tui::{
 };
 
 use crate::{
-    events::{Event, InternalEvent, Mode},
+    events::{Event, InternalEvent, Mode, SenderExt},
     ui::{component::Component, user_input::UserInputWidget},
 };
 
@@ -39,15 +39,13 @@ impl Component for InputWidget {
                 self.input.set_focused(false);
                 self.input.clear();
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))
+                    .send_into(InternalEvent::SwitchMode(Mode::Messages))
                     .await?;
             }
             KeyCode::Enter => {
                 let message = self.input.get_input();
                 self.event_tx
-                    .send(Event::Internal(InternalEvent::SendMessage(
-                        message.to_string(),
-                    )))
+                    .send_into(InternalEvent::SendMessage(message.to_string()))
                     .await?;
                 self.input.clear();
             }

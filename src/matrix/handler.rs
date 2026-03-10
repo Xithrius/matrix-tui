@@ -28,10 +28,10 @@ use tokio::{
 use tracing::{debug, error, info};
 use url::Url;
 
-use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
+use super::event::{MatrixAction, MatrixNotification};
 use crate::{
     config::{CoreConfig, get_data_dir},
-    events::Event,
+    events::{Event, SenderExt},
     matrix::{
         context::MatrixContext,
         login::LoginChoice,
@@ -125,9 +125,7 @@ impl MatrixThread {
         debug!("Available matrix login choices: {:?}", choices);
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::LoginChoices(choices),
-            )))
+            .send_into(MatrixNotification::LoginChoices(choices))
             .await?;
 
         Ok(())
@@ -190,9 +188,7 @@ impl MatrixThread {
                 let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
 
                 self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::KnownRooms(known_rooms),
-                    )))
+                    .send_into(MatrixNotification::KnownRooms(known_rooms))
                     .await?;
             }
             MatrixAction::SendMessage {
@@ -251,14 +247,11 @@ impl MatrixThread {
                     messages.push(message);
                 }
 
-                self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::RoomMessages {
-                            room_id: room_id.clone(),
-                            messages,
-                        },
-                    )))
-                    .await?;
+                let room_messages = MatrixNotification::RoomMessages {
+                    room_id: room_id.clone(),
+                    messages,
+                };
+                self.event_tx.send_into(room_messages).await?;
             }
         }
 
@@ -274,9 +267,7 @@ impl MatrixThread {
 
     async fn attempt_login(&mut self) -> Result<()> {
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::LoggingIn,
-            )))
+            .send_into(MatrixNotification::LoggingIn)
             .await?;
 
         let (client, client_session) =
@@ -294,9 +285,7 @@ impl MatrixThread {
                 // TODO: Graceful retries for failed login attempts
                 login_choice.login(&client, login_credentials).await?;
                 self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::SuccessfulLogin,
-                    )))
+                    .send_into(MatrixNotification::SuccessfulLogin)
                     .await?;
                 break;
             }
@@ -325,9 +314,7 @@ impl MatrixThread {
         self.client_session = Some(client_session);
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
-            )))
+            .send_into(MatrixNotification::SuccessfulLogin)
             .await?;
 
         Ok(())
@@ -335,9 +322,7 @@ impl MatrixThread {
 
     async fn attempt_session_restore(&mut self) -> Result<()> {
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::RestoringSession,
-            )))
+            .send_into(MatrixNotification::RestoringSession)
             .await?;
 
         // The session was serialized as JSON in a file.
@@ -367,9 +352,7 @@ impl MatrixThread {
         self.sync_token = sync_token;
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulSessionRestore,
-            )))
+            .send_into(MatrixNotification::SuccessfulSessionRestore)
             .await?;
 
         info!("Completed restoring session");
@@ -410,9 +393,7 @@ impl MatrixThread {
         self.insert_rooms(&rooms);
         let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::KnownRooms(known_rooms),
-            )))
+            .send_into(MatrixNotification::KnownRooms(known_rooms))
             .await?;
 
         let mut sync_stream = {
