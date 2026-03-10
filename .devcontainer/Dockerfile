@@ -6,3 +6,7 @@ FROM mcr.microsoft.com/devcontainers/rust:latest
 # [Optional] Uncomment this section to install additional packages.
 # RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
 #     && apt-get -y install --no-install-recommends <your-package-list-here>
+
+# make symlink to config file in devcontainer directory
+RUN mkdir -p /home/vscode/.config/matrix-tui \
+    && ln -s /workspaces/matrix-tui/.devcontainer/config.toml /home/vscode/.config/matrix-tui/config.toml

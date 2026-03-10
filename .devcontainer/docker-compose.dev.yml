@@ -1,0 +1,63 @@
+services:
+  dev:
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile
+    volumes:
+      - ..:/workspaces/matrix-tui
+    working_dir: /workspaces/matrix-tui
+    user: vscode
+    cap_add:
+      - SYS_PTRACE
+    environment:
+      - RUST_BACKTRACE=1
+    networks:
+      - matrix-devcontainer-network
+    command: "sleep infinity"
+
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "54322:5432"
+    env_file:
+      - ../test-server/db-config.env
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - matrix-devcontainer-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U matrix -d synapse"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  server:
+    image: matrixdotorg/synapse:v1.147.1
+    restart: unless-stopped
+    user: "root:root"
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["chown 991:991 /data && exec /start.py run"]
+    ports:
+      - "8009:8008"
+    volumes:
+      - synapse_data:/data
+      - ../test-server/homeserver.yml:/config/homeserver.yaml:ro
+      - ../test-server/log.config:/config/log.config:ro
+    environment:
+      - SYNAPSE_CONFIG_PATH=/config/homeserver.yaml
+    env_file:
+      - ../test-server/synapse-config.env
+    networks:
+      - matrix-devcontainer-network
+    depends_on:
+      db:
+        condition: service_healthy
+
+networks:
+  matrix-devcontainer-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  synapse_data:
