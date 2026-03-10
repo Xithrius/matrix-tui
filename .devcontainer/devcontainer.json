@@ -15,6 +15,10 @@
         "--security-opt",
         "seccomp=unconfined"
     ],
+    "mounts": [
+        "source=${localEnv:HOME}/.config/matrix-tui,target=/home/vscode/.config/matrix-tui,type=bind",
+        "source=${localEnv:HOME}/.local/share/matrix-tui,target=/home/vscode/.local/share/matrix-tui,type=bind"
+    ],
     // Configure tool-specific properties.
     "customizations": {
         // Configure properties specific to VS Code.
