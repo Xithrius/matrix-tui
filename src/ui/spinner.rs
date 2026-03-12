@@ -1,4 +1,4 @@
-const SPINNERS: &[&str] = &["|", "/", "-", "\\"];
+const SPINNERS: &[&str] = &["⠧", "⠏", "⠛", "⠹", "⠼", "⠶"];
 
 const SPINNER_SECONDS_PER_REVOLUTION: f32 = 0.5;
 
