@@ -36,12 +36,12 @@ impl EventHandler {
 
 /// A thread that handles reading crossterm events and emitting tick events on a regular schedule.
 struct EventThread {
-    fps: f64,
+    fps: u64,
     event_tx: Sender<Event>,
 }
 
 impl EventThread {
-    const fn new(event_tx: Sender<Event>, fps: f64) -> Self {
+    const fn new(event_tx: Sender<Event>, fps: u64) -> Self {
         Self { fps, event_tx }
     }
 
@@ -49,7 +49,7 @@ impl EventThread {
     ///
     /// This function emits tick events at a fixed rate and polls for crossterm events in between.
     async fn run(self) -> Result<()> {
-        let tick_interval = Duration::from_secs_f64(1.0 / self.fps);
+        let tick_interval = Duration::from_secs_f64(1.0 / (self.fps as f64));
         let mut last_tick = Instant::now();
 
         loop {

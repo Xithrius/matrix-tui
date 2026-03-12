@@ -1,7 +1,11 @@
 #![forbid(unsafe_code)]
 #![recursion_limit = "256"]
 #![warn(clippy::nursery, clippy::pedantic)]
-#![allow(clippy::cast_possible_truncation)]
+#![allow(
+    clippy::cast_possible_truncation,
+    clippy::cast_precision_loss,
+    clippy::cast_sign_loss
+)]
 
 use clap::Parser;
 use color_eyre::Result;

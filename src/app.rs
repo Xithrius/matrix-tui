@@ -3,7 +3,7 @@ use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, error};
 use tui::{
     DefaultTerminal, Frame,
-    crossterm::event::{Event as CrosstermEvent, KeyEvent, KeyEventKind},
+    crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind},
     layout::{Constraint, Layout, Rect},
 };
 
@@ -33,7 +33,7 @@ impl App {
         let (matrix_tx, matrix_rx) = channel(100);
         let mode = Mode::default();
 
-        let ui = Ui::new(event_tx.clone(), mode.clone());
+        let ui = Ui::new(config, event_tx.clone(), mode.clone());
 
         let events = EventHandler::new(config, event_tx.clone(), event_rx);
         MatrixHandler::new(config, event_tx.clone(), matrix_rx)?;
@@ -118,6 +118,7 @@ impl App {
                 self.ui
                     .status_line
                     .set_status(Status::Info("Restoring session...".to_string()));
+                self.switch_mode(Mode::RestoringSession).await?;
             }
             MatrixNotification::SuccessfulSessionRestore => {
                 self.switch_mode(Mode::Messages).await?;
@@ -210,8 +211,9 @@ impl App {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    #[allow(clippy::unused_self)]
-    pub const fn tick(&self) {}
+    pub const fn tick(&mut self) {
+        self.ui.header.increment_spinner();
+    }
 
     pub const fn quit(&mut self) {
         self.running = false;
@@ -238,7 +240,7 @@ impl App {
 
                 self.ui.authentication.set_login_mode(login_mode.clone());
             }
-            Mode::Messages | Mode::RoomNavigation => {}
+            _ => {}
         }
 
         self.ui.header.set_mode(mode.clone());
@@ -249,14 +251,23 @@ impl App {
 }
 
 impl Component for App {
-    async fn handle_key_event(&mut self, key_event: KeyEvent) -> Result<()> {
-        debug!("Received key event: {:?}", key_event);
+    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        debug!("Received key event: {:?}", key);
 
         match &self.mode {
-            Mode::Messages => self.ui.messages.handle_key_event(key_event).await,
-            Mode::Input => self.ui.input.handle_key_event(key_event).await,
-            Mode::Login(_) => self.ui.authentication.handle_key_event(key_event).await,
-            Mode::RoomNavigation => self.ui.navigation.rooms.handle_key_event(key_event).await,
+            Mode::Login(_) => self.ui.authentication.handle_key_event(key).await,
+            Mode::Messages | Mode::RestoringSession => {
+                if key.code == KeyCode::Esc && self.mode == Mode::RestoringSession {
+                    self.event_tx
+                        .send(Event::Internal(InternalEvent::Quit))
+                        .await?;
+                    return Ok(());
+                }
+
+                self.ui.messages.handle_key_event(key).await
+            }
+            Mode::Input => self.ui.input.handle_key_event(key).await,
+            Mode::RoomNavigation => self.ui.navigation.rooms.handle_key_event(key).await,
         }
     }
 

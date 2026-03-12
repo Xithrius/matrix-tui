@@ -11,7 +11,7 @@ pub struct CoreConfig {
 }
 
 impl CoreConfig {
-    pub fn new(frame_rate: f64) -> Result<Self> {
+    pub fn new(frame_rate: u64) -> Result<Self> {
         let mut config = load_config()?;
 
         config.terminal.frame_rate = frame_rate;
