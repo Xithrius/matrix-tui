@@ -28,7 +28,7 @@ use tokio::{
     fs,
     sync::mpsc::{Receiver, Sender},
 };
-use tracing::{debug, error, info};
+use tracing::{debug, error, info, warn};
 use url::Url;
 
 use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
@@ -279,16 +279,24 @@ impl MatrixThread {
                 credentials: login_credentials,
             } = action
             {
-                // TODO: Graceful retries for failed login attempts
-                login_choice.login(&client, login_credentials).await?;
-                self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::SuccessfulLogin,
-                    )))
-                    .await?;
-                break;
+                if let Err(err) = login_choice.login(&client, login_credentials).await {
+                    warn!("Failed to login: {}", err);
+                    self.event_tx
+                        .send(Event::Matrix(MatrixEvent::Notification(
+                            MatrixNotification::LoginFailed,
+                        )))
+                        .await?;
+                } else {
+                    break;
+                }
             }
         }
+
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::SuccessfulLogin,
+            )))
+            .await?;
 
         let matrix_auth = client.matrix_auth();
 
@@ -325,6 +333,11 @@ impl MatrixThread {
         } = serde_json::from_str(&serialized_session)?;
 
         info!("Restoring session for {}...", user_session.meta.user_id);
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::RestoringSession,
+            )))
+            .await?;
 
         // Build the client with the previous settings from the session.
         let client = Client::builder()
@@ -342,13 +355,12 @@ impl MatrixThread {
         self.client_session = Some(client_session);
         self.sync_token = sync_token;
 
+        info!("Completed restoring session");
         self.event_tx
             .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
+                MatrixNotification::SuccessfulSessionRestore,
             )))
             .await?;
-
-        info!("Completed restoring session");
 
         Ok(())
     }

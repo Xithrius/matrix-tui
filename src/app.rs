@@ -14,7 +14,7 @@ use crate::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
     },
-    ui::{Component, Ui},
+    ui::{Component, Status, Ui},
 };
 
 pub struct App {
@@ -115,13 +115,21 @@ impl App {
     async fn handle_matrix_notification(&mut self, notification: MatrixNotification) -> Result<()> {
         match notification {
             MatrixNotification::RestoringSession => {
-                todo!();
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Restoring session...".to_string()));
             }
             MatrixNotification::SuccessfulSessionRestore => {
-                todo!();
+                self.switch_mode(Mode::Messages).await?;
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Session restored successfully".to_string()));
             }
             MatrixNotification::LoginChoices(login_choices) => {
                 self.ui.authentication.set_login_choices(login_choices);
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Select login option".to_string()));
             }
             MatrixNotification::Message { room_id, message } => {
                 // TODO: Add to app context and pass reference to messages UI
@@ -129,6 +137,16 @@ impl App {
             }
             MatrixNotification::SuccessfulLogin => {
                 self.switch_mode(Mode::Messages).await?;
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Login successful".to_string()));
+            }
+            MatrixNotification::LoginFailed => {
+                self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
+                    .await?;
+                self.ui
+                    .status_line
+                    .set_status(Status::Error("Login failed".to_string()));
             }
             MatrixNotification::KnownRooms(rooms) => {
                 let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {
@@ -239,23 +257,30 @@ impl Component for App {
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
         if let Mode::Login(_) = self.mode {
-            self.ui.authentication.draw(frame, area);
+            let [login_area, status_area] =
+                Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)]).areas(area);
+
+            self.ui.authentication.draw(frame, login_area);
+            self.ui.status_line.draw(frame, status_area);
             return;
         }
 
-        let [top, middle, bottom] = Layout::vertical([
+        let [header_area, content_area, input_area, status_area] = Layout::vertical([
             Constraint::Length(1),
             Constraint::Percentage(100),
             Constraint::Length(3),
+            Constraint::Length(1),
         ])
         .areas(area);
 
-        let [left, right] =
-            Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)]).areas(middle);
+        let [navigation_area, messages_area] =
+            Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)])
+                .areas(content_area);
 
-        self.ui.header.draw(frame, top);
-        self.ui.navigation.rooms.draw(frame, left);
-        self.ui.messages.draw(frame, right);
-        self.ui.input.draw(frame, bottom);
+        self.ui.header.draw(frame, header_area);
+        self.ui.navigation.rooms.draw(frame, navigation_area);
+        self.ui.messages.draw(frame, messages_area);
+        self.ui.input.draw(frame, input_area);
+        self.ui.status_line.draw(frame, status_area);
     }
 }
