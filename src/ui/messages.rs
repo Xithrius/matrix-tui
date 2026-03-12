@@ -83,12 +83,14 @@ impl Component for MessagesWidget {
         let index = self.table_state.selected();
 
         let contains_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        if contains_ctrl && key.code == KeyCode::Char('r') {
-            self.event_tx
-                .send(Event::Internal(InternalEvent::SwitchMode(
-                    Mode::RoomNavigation,
-                )))
-                .await?;
+        if contains_ctrl {
+            if key.code == KeyCode::Char('r') {
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::SwitchMode(
+                        Mode::RoomNavigation,
+                    )))
+                    .await?;
+            }
 
             return Ok(());
         }

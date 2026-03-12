@@ -4,7 +4,6 @@ mod header;
 mod input;
 mod messages;
 mod navigation;
-mod spinner;
 mod status_line;
 mod user_input;
 

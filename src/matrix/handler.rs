@@ -1,4 +1,7 @@
-use std::{collections::HashMap, path::PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::{Result, eyre::ContextCompat};
 use futures_util::StreamExt;
@@ -52,9 +55,12 @@ impl MatrixHandler {
     ) -> Result<Self> {
         let homeserver = Url::parse(&config.matrix.homeserver_url)?;
 
+        let data_dir = get_data_dir().join("persist_session");
+        let session_file = data_dir.join("session");
+
         let context = MatrixContext::new(event_tx.clone());
 
-        let mut actor = MatrixThread::new(event_tx, action_rx, homeserver, context);
+        let mut actor = MatrixThread::new(event_tx, action_rx, homeserver, session_file, context);
         tokio::task::spawn(async move {
             if let Err(err) = actor.run().await {
                 error!("Matrix runner ran into an issue: {}", err);
@@ -71,8 +77,6 @@ struct MatrixThread {
     homeserver: Url,
     client: Option<Client>,
     client_session: Option<ClientSession>,
-
-    data_directory: PathBuf,
     session_file: PathBuf,
     sync_token: Option<String>,
     context: MatrixContext,
@@ -85,18 +89,15 @@ impl MatrixThread {
         event_tx: Sender<Event>,
         action_rx: Receiver<MatrixAction>,
         homeserver: Url,
+        session_file: PathBuf,
         context: MatrixContext,
     ) -> Self {
-        let data_directory = get_data_dir().join("persist_session");
-        let session_file = data_directory.join("session");
-
         Self {
             event_tx,
             action_rx,
             homeserver,
             client: None,
             client_session: None,
-            data_directory,
             session_file,
             sync_token: None,
             context,
@@ -177,13 +178,6 @@ impl MatrixThread {
             .context("Could not get client for handling matrix action")?;
 
         match action {
-            MatrixAction::StartRestoreSession => {
-                todo!();
-            }
-            MatrixAction::StartLoggingIn => {
-                todo!();
-            }
-            MatrixAction::SelectLogin { .. } => {}
             MatrixAction::GetRooms => {
                 let rooms = client.rooms();
                 self.insert_rooms(&rooms);
@@ -260,6 +254,7 @@ impl MatrixThread {
                     )))
                     .await?;
             }
+            MatrixAction::SelectLogin { .. } => {}
         }
 
         Ok(())
@@ -272,15 +267,8 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn attempt_login(&mut self) -> Result<()> {
-        self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::LoggingIn,
-            )))
-            .await?;
-
-        let (client, client_session) =
-            build_client(&self.data_directory, self.homeserver.clone()).await?;
+    async fn attempt_login(&mut self, data_dir: &Path) -> Result<()> {
+        let (client, client_session) = build_client(data_dir, self.homeserver.clone()).await?;
 
         self.send_login_choices(&client).await?;
 
@@ -332,24 +320,12 @@ impl MatrixThread {
         self.client = Some(client);
         self.client_session = Some(client_session);
 
-        self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
-            )))
-            .await?;
-
         Ok(())
     }
 
-    async fn attempt_session_restore(&mut self) -> Result<()> {
-        self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::RestoringSession,
-            )))
-            .await?;
-
+    async fn attempt_session_restore(&mut self, session_file: &Path) -> Result<()> {
         // The session was serialized as JSON in a file.
-        let serialized_session = fs::read_to_string(self.session_file.clone()).await?;
+        let serialized_session = fs::read_to_string(session_file).await?;
         let FullSession {
             client_session,
             user_session,
@@ -392,11 +368,13 @@ impl MatrixThread {
     async fn run(&mut self) -> Result<()> {
         info!("Starting matrix task");
 
-        // TODO: Handle errors via sending information through the event sender
-        if self.session_file.exists() {
-            self.attempt_session_restore().await?;
+        let data_dir = get_data_dir().join("persist_session");
+        let session_file = data_dir.join("session");
+
+        if session_file.exists() {
+            self.attempt_session_restore(&session_file).await?;
         } else {
-            self.attempt_login().await?;
+            self.attempt_login(&data_dir).await?;
         }
 
         self.add_event_handlers()?;
@@ -416,7 +394,7 @@ impl MatrixThread {
         let response = client.sync_once(settings.clone()).await?;
         let sync_token = response.next_batch.clone();
         settings = settings.token(sync_token.clone());
-        persist_sync_token(&self.session_file, sync_token).await?;
+        persist_sync_token(&session_file, sync_token).await?;
 
         let rooms = client.rooms();
         self.insert_rooms(&rooms);

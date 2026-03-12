@@ -4,6 +4,7 @@ use crate::matrix::{
 };
 
 #[derive(Clone, Debug)]
+#[allow(dead_code)]
 pub enum MatrixEvent {
     Action(MatrixAction),
     Notification(MatrixNotification),
@@ -11,10 +12,6 @@ pub enum MatrixEvent {
 
 #[derive(Clone, Debug)]
 pub enum MatrixAction {
-    #[allow(dead_code)]
-    StartLoggingIn,
-    #[allow(dead_code)]
-    StartRestoreSession,
     SelectLogin {
         choice: LoginChoice,
         credentials: Option<LoginCredentials>,
@@ -30,18 +27,15 @@ pub enum MatrixAction {
 
 #[derive(Clone, Debug)]
 pub enum MatrixNotification {
-    /// The user has selected [`MatrixAction::StartLoggingIn`]
-    LoggingIn,
+    #[allow(dead_code)]
+    RestoringSession,
+    #[allow(dead_code)]
+    SuccessfulSessionRestore,
     LoginChoices(Vec<LoginChoice>),
-    /// The selected login choice had no issues when authenticating
+    /// The login choice selected was successful in authentication,
+    /// and the matrix task can now listen for more events besides logging in.
     SuccessfulLogin,
     LoginFailed,
-
-    /// Started restoring the session, after [`MatrixAction::StartRestoreSession`] was selected
-    RestoringSession,
-    /// Finished restoring the session without issue
-    SuccessfulSessionRestore,
-
     /// All the rooms the matrix client knows about.
     ///
     /// This includes joined, invited, and left rooms.
