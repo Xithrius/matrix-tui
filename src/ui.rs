@@ -4,6 +4,7 @@ mod header;
 mod input;
 mod messages;
 mod navigation;
+mod spinner;
 mod status_line;
 mod user_input;
 
@@ -11,6 +12,7 @@ use tokio::sync::mpsc::Sender;
 
 pub use crate::ui::{component::Component, status_line::Status};
 use crate::{
+    config::CoreConfig,
     events::{Event, Mode},
     ui::{
         authentication::AuthenticationWidget, header::HeaderWidget, input::InputWidget,
@@ -28,10 +30,10 @@ pub struct Ui {
 }
 
 impl Ui {
-    pub fn new(event_tx: Sender<Event>, mode: Mode) -> Self {
+    pub fn new(config: &CoreConfig, event_tx: Sender<Event>, mode: Mode) -> Self {
         Self {
             // TODO: Replace motd with something better
-            header: HeaderWidget::new("matrix-tui".to_string(), mode),
+            header: HeaderWidget::new(config, "matrix-tui".to_string(), mode),
             status_line: StatusLineWidget::new(Status::Info("Launching...".to_string())),
             messages: MessagesWidget::new(event_tx.clone()),
             input: InputWidget::new(event_tx.clone()),
