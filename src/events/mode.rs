@@ -13,6 +13,7 @@ pub enum LoginMode {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Mode {
     Login(LoginMode),
+    RestoringSession,
     Messages,
     Input,
     RoomNavigation,
@@ -33,6 +34,7 @@ impl fmt::Display for Mode {
                 LoginMode::PasswordPrompt => write!(f, "Password prompt"),
                 LoginMode::Completed => write!(f, "Completed"),
             },
+            Self::RestoringSession => write!(f, "Restoring session"),
             Self::Messages => write!(f, "Messages"),
             Self::Input => write!(f, "Input"),
             Self::RoomNavigation => write!(f, "Room navigation"),
