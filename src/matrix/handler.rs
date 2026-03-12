@@ -279,6 +279,12 @@ impl MatrixThread {
                 credentials: login_credentials,
             } = action
             {
+                self.event_tx
+                    .send(Event::Matrix(MatrixEvent::Notification(
+                        MatrixNotification::LoggingIn,
+                    )))
+                    .await?;
+
                 if let Err(err) = login_choice.login(&client, login_credentials).await {
                     warn!("Failed to login: {}", err);
                     self.event_tx
