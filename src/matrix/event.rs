@@ -35,6 +35,7 @@ pub enum MatrixNotification {
     /// The login choice selected was successful in authentication,
     /// and the matrix task can now listen for more events besides logging in.
     SuccessfulLogin,
+    LoginFailed,
     /// All the rooms the matrix client knows about.
     ///
     /// This includes joined, invited, and left rooms.
