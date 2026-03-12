@@ -32,6 +32,8 @@ pub enum MatrixNotification {
     #[allow(dead_code)]
     SuccessfulSessionRestore,
     LoginChoices(Vec<LoginChoice>),
+    /// Login procedure initiated.
+    LoggingIn,
     /// The login choice selected was successful in authentication,
     /// and the matrix task can now listen for more events besides logging in.
     SuccessfulLogin,

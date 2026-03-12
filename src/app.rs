@@ -135,6 +135,11 @@ impl App {
                 // TODO: Add to app context and pass reference to messages UI
                 self.ui.messages.push_message(&room_id, message);
             }
+            MatrixNotification::LoggingIn => {
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Logging in...".to_string()));
+            }
             MatrixNotification::SuccessfulLogin => {
                 self.switch_mode(Mode::Messages).await?;
                 self.ui
