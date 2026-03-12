@@ -8,7 +8,7 @@ RUN rustup toolchain uninstall 1.93.0 2>/dev/null || true \
     && rustup toolchain install 1.93.0 \
     && rustup default 1.93.0 \
     && rustup toolchain install nightly-x86_64-unknown-linux-gnu \
-    && rustup component add clippy \
+    && rustup component add clippy rust-src \
     && rustup component add --toolchain nightly-x86_64-unknown-linux-gnu rustfmt
 
 # [Optional] Uncomment this section to install additional packages.
