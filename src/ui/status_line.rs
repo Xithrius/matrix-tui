@@ -58,6 +58,18 @@ impl StatusLineWidget {
         self.status = Some(status);
         self.expiration_time = timeout_s.map(timeout_s_to_expiration);
     }
+
+    pub fn tick(&mut self) {
+        let Some(expiration_time) = self.expiration_time else {
+            return;
+        };
+
+        let now = Instant::now();
+        if now >= expiration_time {
+            self.status = None;
+            self.expiration_time = None;
+        }
+    }
 }
 
 impl Component for StatusLineWidget {

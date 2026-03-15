@@ -212,8 +212,9 @@ impl App {
     ///
     /// The tick event is where you can update the state of your application with any logic that
     /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub const fn tick(&mut self) {
+    pub fn tick(&mut self) {
         self.ui.header.increment_spinner();
+        self.ui.status_line.tick();
     }
 
     pub const fn quit(&mut self) {
