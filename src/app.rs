@@ -117,20 +117,21 @@ impl App {
             MatrixNotification::RestoringSession => {
                 self.ui
                     .status_line
-                    .set_status(Status::Info("Restoring session...".to_string()));
+                    .set_status(Status::Info("Restoring session...".to_string()), None);
                 self.switch_mode(Mode::RestoringSession).await?;
             }
             MatrixNotification::SuccessfulSessionRestore => {
                 self.switch_mode(Mode::Messages).await?;
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Session restored successfully".to_string()));
+                self.ui.status_line.set_status(
+                    Status::Info("Session restored successfully".to_string()),
+                    Some(5),
+                );
             }
             MatrixNotification::LoginChoices(login_choices) => {
                 self.ui.authentication.set_login_choices(login_choices);
                 self.ui
                     .status_line
-                    .set_status(Status::Info("Select login option".to_string()));
+                    .set_status(Status::Info("Select login option".to_string()), None);
             }
             MatrixNotification::Message { room_id, message } => {
                 // TODO: Add to app context and pass reference to messages UI
@@ -139,20 +140,20 @@ impl App {
             MatrixNotification::LoggingIn => {
                 self.ui
                     .status_line
-                    .set_status(Status::Info("Logging in...".to_string()));
+                    .set_status(Status::Info("Logging in...".to_string()), None);
             }
             MatrixNotification::SuccessfulLogin => {
                 self.switch_mode(Mode::Messages).await?;
                 self.ui
                     .status_line
-                    .set_status(Status::Info("Login successful".to_string()));
+                    .set_status(Status::Info("Login successful".to_string()), Some(5));
             }
             MatrixNotification::LoginFailed => {
                 self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
                     .await?;
                 self.ui
                     .status_line
-                    .set_status(Status::Error("Login failed".to_string()));
+                    .set_status(Status::Error("Login failed".to_string()), Some(5));
             }
             MatrixNotification::KnownRooms(rooms) => {
                 let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {

@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+    fmt,
+    time::{Duration, Instant},
+};
 
 use tui::{
     Frame,
@@ -35,26 +38,39 @@ impl Status {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct StatusLineWidget {
-    status: Status,
+    status: Option<Status>,
+    expiration_time: Option<Instant>,
+}
+
+fn timeout_s_to_expiration(timeout_s: u64) -> Instant {
+    Instant::now() + Duration::from_secs(timeout_s)
 }
 
 impl StatusLineWidget {
-    pub const fn new(status: Status) -> Self {
-        Self { status }
+    pub fn new(status: Option<Status>, timeout_s: Option<u64>) -> Self {
+        Self {
+            status,
+            expiration_time: timeout_s.map(timeout_s_to_expiration),
+        }
     }
 
-    pub fn set_status(&mut self, status: Status) {
-        self.status = status;
+    pub fn set_status(&mut self, status: Status, timeout_s: Option<u64>) {
+        self.status = Some(status);
+        self.expiration_time = timeout_s.map(timeout_s_to_expiration);
     }
 }
 
 impl Component for StatusLineWidget {
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let style = Style::new().bg(self.status.to_color());
+        let Some(status) = &self.status else {
+            return;
+        };
+
+        let style = Style::new().bg(status.to_color());
 
         let status_str_padded = format!(
             "{: <width$}",
-            self.status.to_string(),
+            status.to_string(),
             width = area.width as usize
         );
 
