@@ -34,7 +34,10 @@ impl Ui {
         Self {
             // TODO: Replace motd with something better
             header: HeaderWidget::new(config, "matrix-tui".to_string(), mode),
-            status_line: StatusLineWidget::new(Status::Info("Launching...".to_string())),
+            status_line: StatusLineWidget::new(
+                Some(Status::Info("Launching...".to_string())),
+                None,
+            ),
             messages: MessagesWidget::new(event_tx.clone()),
             input: InputWidget::new(event_tx.clone()),
             authentication: AuthenticationWidget::new(event_tx.clone()),
