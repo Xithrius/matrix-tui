@@ -1,6 +1,9 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use color_eyre::{Result, eyre::ContextCompat};
+use color_eyre::{
+    Result,
+    eyre::{ContextCompat, eyre},
+};
 use futures_util::StreamExt;
 use matrix_sdk::{
     Client, Room,
@@ -184,6 +187,27 @@ impl MatrixThread {
                 todo!();
             }
             MatrixAction::SelectLogin { .. } => {}
+            MatrixAction::Logout => {
+                if let Some(client) = self.client.as_ref() {
+                    client.matrix_auth().logout().await?;
+                } else {
+                    return Err(eyre!("Client not found when logging out"));
+                }
+
+                // reset server state
+                client.matrix_auth().logout().await?;
+
+                // delete session file
+                let data_directory = get_data_dir().join("persist_session");
+                let session_file = data_directory.join("session");
+                fs::remove_file(session_file).await?;
+
+                // reset local state
+                self.client = None;
+                self.client_session = None;
+                self.sync_token = None;
+                self.rooms.clear();
+            }
             MatrixAction::GetRooms => {
                 let rooms = client.rooms();
                 self.insert_rooms(&rooms);
