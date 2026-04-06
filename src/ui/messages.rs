@@ -99,6 +99,11 @@ impl Component for MessagesWidget {
                     .send(Event::Internal(InternalEvent::Quit))
                     .await?;
             }
+            KeyCode::Char('l') => {
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::Logout))
+                    .await?;
+            }
             KeyCode::Up => {
                 let index = index.unwrap_or(0).saturating_sub(1);
                 self.table_state.select(Some(index));

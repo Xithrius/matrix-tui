@@ -75,6 +75,9 @@ impl App {
             InternalEvent::Quit => {
                 self.quit();
             }
+            InternalEvent::Logout => {
+                self.logout().await?;
+            }
             InternalEvent::SendMessage(content) => {
                 // TODO: Add to app context and pass reference to messages UI
                 let Some(room_id) = self.ui.navigation.rooms.get_selected_room_id() else {
@@ -219,6 +222,16 @@ impl App {
 
     pub const fn quit(&mut self) {
         self.running = false;
+    }
+
+    pub async fn logout(&mut self) -> Result<()> {
+        self.matrix_tx.send(MatrixAction::Logout).await?;
+        self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
+            .await?;
+        self.ui
+            .status_line
+            .set_status(Status::Info("Logging out...".to_string()), None);
+        Ok(())
     }
 
     pub async fn switch_mode(&mut self, mode: Mode) -> Result<()> {
