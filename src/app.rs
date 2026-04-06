@@ -231,6 +231,11 @@ impl App {
         self.ui
             .status_line
             .set_status(Status::Info("Logging out...".to_string()), None);
+
+        // clean up ui state
+        self.ui.navigation.rooms.clear();
+        self.ui.messages.clear();
+
         Ok(())
     }
 

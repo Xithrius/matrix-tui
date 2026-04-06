@@ -76,6 +76,13 @@ impl MessagesWidget {
             selected_room_messages.push_back(message);
         }
     }
+
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.table_state = TableState::default();
+        self.selected_room_id = None;
+        self.selected_room_messages = None;
+    }
 }
 
 impl Component for MessagesWidget {
