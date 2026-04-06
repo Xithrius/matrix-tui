@@ -188,11 +188,10 @@ impl MatrixThread {
             }
             MatrixAction::SelectLogin { .. } => {}
             MatrixAction::Logout => {
-                if let Some(client) = self.client.as_ref() {
-                    client.matrix_auth().logout().await?;
-                } else {
-                    return Err(eyre!("Client not found when logging out"));
-                }
+                let client = self
+                    .client
+                    .as_ref()
+                    .context("Client not found when logging out")?;
 
                 // reset server state
                 client.matrix_auth().logout().await?;
@@ -416,62 +415,68 @@ impl MatrixThread {
     async fn run(&mut self) -> Result<()> {
         info!("Starting matrix task");
 
-        // TODO: Handle errors via sending information through the event sender
-        if self.session_file.exists() {
-            self.attempt_session_restore().await?;
-        } else {
-            self.attempt_login().await?;
-        }
-
-        self.add_event_handlers()?;
-
-        let client = self
-            .client
-            .clone()
-            .context("Failed to get client after login or session restore")?;
-
-        // Enable room members lazy-loading, it will speed up the initial sync a lot
-        // with accounts in lots of rooms.
-        // See <https://spec.matrix.org/v1.6/client-server-api/#lazy-loading-room-members>.
-        let filter = FilterDefinition::with_lazy_loading();
-
-        let mut settings = SyncSettings::default().filter(filter.into());
-
-        let response = client.sync_once(settings.clone()).await?;
-        let sync_token = response.next_batch.clone();
-        settings = settings.token(sync_token.clone());
-        persist_sync_token(&self.session_file, sync_token).await?;
-
-        let rooms = client.rooms();
-        self.insert_rooms(&rooms);
-        let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
-        self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::KnownRooms(known_rooms),
-            )))
-            .await?;
-
-        let mut sync_stream = {
-            let stream = client.sync_stream(settings).await;
-            Box::pin(stream)
-        };
-
         loop {
-            tokio::select! {
-                biased;
+            // TODO: Handle errors via sending information through the event sender
+            if self.session_file.exists() {
+                self.attempt_session_restore().await?;
+            } else {
+                self.attempt_login().await?;
+            }
 
-                Some(action) = self.action_rx.recv() => {
-                    if let Err(err) = self.handle_matrix_action(&action).await {
-                        error!("Failed to handle matrix action: {}", err);
-                    }
-                },
-                Some(Ok(response)) = sync_stream.next() => {
-                    // I don't know why. I don't want to know why. I shouldn't have to wonder why.
-                    // Why does having a `.into()` get rid of the "Expected &SyncResponse, found &SyncResponse"
-                    // error from rust analyzer, specifically in VSCode-like environments?
-                    #[allow(clippy::useless_conversion)]
-                    if let Err(err) = self.handle_sync_stream_response(&response.into()).await {
-                        error!("Failed to handle matrix sync stream response: {}", err);
+            self.add_event_handlers()?;
+
+            let client = self
+                .client
+                .clone()
+                .context("Failed to get client after login or session restore")?;
+
+            // Enable room members lazy-loading, it will speed up the initial sync a lot
+            // with accounts in lots of rooms.
+            // See <https://spec.matrix.org/v1.6/client-server-api/#lazy-loading-room-members>.
+            let filter = FilterDefinition::with_lazy_loading();
+
+            let mut settings = SyncSettings::default().filter(filter.into());
+
+            let response = client.sync_once(settings.clone()).await?;
+            let sync_token = response.next_batch.clone();
+            settings = settings.token(sync_token.clone());
+            persist_sync_token(&self.session_file, sync_token).await?;
+
+            let rooms = client.rooms();
+            self.insert_rooms(&rooms);
+            let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
+            self.event_tx
+                .send(Event::Matrix(MatrixEvent::Notification(
+                    MatrixNotification::KnownRooms(known_rooms),
+                )))
+                .await?;
+
+            let mut sync_stream = {
+                let stream = client.sync_stream(settings).await;
+                Box::pin(stream)
+            };
+
+            loop {
+                tokio::select! {
+                    biased;
+
+                    Some(action) = self.action_rx.recv() => {
+                        if let Err(err) = self.handle_matrix_action(&action).await {
+                            error!("Failed to handle matrix action: {}", err);
+                        }
+
+                        if matches!(action, MatrixAction::Logout) {
+                            break;
+                        }
+                    },
+                    Some(Ok(response)) = sync_stream.next() => {
+                        // I don't know why. I don't want to know why. I shouldn't have to wonder why.
+                        // Why does having a `.into()` get rid of the "Expected &SyncResponse, found &SyncResponse"
+                        // error from rust analyzer, specifically in VSCode-like environments?
+                        #[allow(clippy::useless_conversion)]
+                        if let Err(err) = self.handle_sync_stream_response(&response.into()).await {
+                            error!("Failed to handle matrix sync stream response: {}", err);
+                        }
                     }
                 }
             }
