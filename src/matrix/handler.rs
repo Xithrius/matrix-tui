@@ -1,9 +1,6 @@
 use std::{collections::HashMap, path::PathBuf};
 
-use color_eyre::{
-    Result,
-    eyre::{ContextCompat, eyre},
-};
+use color_eyre::{Result, eyre::ContextCompat};
 use futures_util::StreamExt;
 use matrix_sdk::{
     Client, Room,
