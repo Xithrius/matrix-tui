@@ -193,6 +193,13 @@ impl MatrixThread {
                 // reset server state
                 client.matrix_auth().logout().await?;
 
+                // delete database
+                let client_session = self
+                    .client_session
+                    .as_ref()
+                    .context("Client session not found when logging out")?;
+                fs::remove_dir_all(client_session.db_path.clone()).await?;
+
                 // delete session file
                 let data_directory = get_data_dir().join("persist_session");
                 let session_file = data_directory.join("session");
