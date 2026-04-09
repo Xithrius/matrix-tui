@@ -185,11 +185,6 @@ impl MatrixThread {
             }
             MatrixAction::SelectLogin { .. } => {}
             MatrixAction::Logout => {
-                let client = self
-                    .client
-                    .as_ref()
-                    .context("Client not found when logging out")?;
-
                 // reset server state
                 client.matrix_auth().logout().await?;
 
