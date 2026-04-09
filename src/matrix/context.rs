@@ -39,11 +39,10 @@ impl MatrixContext {
         };
 
         let datetime = event.origin_server_ts.origin_server_chrono()?;
-        let formatted_datetime = datetime.format("%c").to_string();
         let name = event.sender.localpart();
         let content = text_message.body.clone();
 
-        let message = MatrixMessage::new(formatted_datetime, name.to_owned(), content);
+        let message = MatrixMessage::new(datetime, name.to_owned(), content);
 
         let room_message_event =
             Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {
