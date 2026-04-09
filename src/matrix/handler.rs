@@ -18,6 +18,7 @@ use matrix_sdk::{
             room::message::{OriginalSyncRoomMessageEvent, RoomMessageEventContent},
         },
         exports::serde_json,
+        uint,
     },
     sync::SyncResponse,
 };
@@ -240,7 +241,8 @@ impl MatrixThread {
                     return Ok(());
                 };
 
-                let message_filter_options = MessagesOptions::new(Direction::Backward);
+                let mut message_filter_options = MessagesOptions::new(Direction::Backward);
+                message_filter_options.limit = uint!(100);
 
                 let room_messages = room.messages(message_filter_options).await?;
                 let mut messages = Vec::new();
