@@ -76,6 +76,13 @@ impl MessagesWidget {
             selected_room_messages.push_back(message);
         }
     }
+
+    pub fn clear(&mut self) {
+        self.messages.clear();
+        self.table_state = TableState::default();
+        self.selected_room_id = None;
+        self.selected_room_messages = None;
+    }
 }
 
 impl Component for MessagesWidget {
@@ -97,6 +104,11 @@ impl Component for MessagesWidget {
             KeyCode::Esc | KeyCode::Char('q') => {
                 self.event_tx
                     .send(Event::Internal(InternalEvent::Quit))
+                    .await?;
+            }
+            KeyCode::Char('l') => {
+                self.event_tx
+                    .send(Event::Internal(InternalEvent::Logout))
                     .await?;
             }
             KeyCode::Up => {
@@ -140,7 +152,7 @@ impl Component for MessagesWidget {
             .iter()
             .map(|message| {
                 let cells = vec![
-                    Cell::from(message.datetime.clone()).style(*DATETIME_STYLE),
+                    Cell::from(message.datetime.format("%c").to_string()).style(*DATETIME_STYLE),
                     Cell::from(message.name.clone()),
                     Cell::from(message.content.clone()),
                 ];

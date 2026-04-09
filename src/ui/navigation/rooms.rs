@@ -53,6 +53,12 @@ impl RoomNavigationWidget {
     pub fn remove_room(&mut self, room_id: &String) {
         self.rooms.remove(room_id);
     }
+
+    pub fn clear(&mut self) {
+        self.rooms.clear();
+        self.list_state = ListState::default();
+        self.selected_room_id = None;
+    }
 }
 
 impl Component for RoomNavigationWidget {

@@ -75,6 +75,9 @@ impl App {
             InternalEvent::Quit => {
                 self.quit();
             }
+            InternalEvent::Logout => {
+                self.logout().await?;
+            }
             InternalEvent::SendMessage(content) => {
                 // TODO: Add to app context and pass reference to messages UI
                 let Some(room_id) = self.ui.navigation.rooms.get_selected_room_id() else {
@@ -175,7 +178,11 @@ impl App {
                 self.ui.navigation.rooms.set_selected_room_id(&first_room);
                 self.ui.messages.set_selected_room_id(first_room);
             }
-            MatrixNotification::RoomMessages { room_id, messages } => {
+            MatrixNotification::RoomMessages {
+                room_id,
+                mut messages,
+            } => {
+                messages.sort_by_key(|message| message.datetime);
                 for message in messages {
                     self.ui.messages.push_message(&room_id, message);
                 }
@@ -219,6 +226,21 @@ impl App {
 
     pub const fn quit(&mut self) {
         self.running = false;
+    }
+
+    pub async fn logout(&mut self) -> Result<()> {
+        self.matrix_tx.send(MatrixAction::Logout).await?;
+        self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
+            .await?;
+        self.ui
+            .status_line
+            .set_status(Status::Info("Logging out...".to_string()), None);
+
+        // clean up ui state
+        self.ui.navigation.rooms.clear();
+        self.ui.messages.clear();
+
+        Ok(())
     }
 
     pub async fn switch_mode(&mut self, mode: Mode) -> Result<()> {

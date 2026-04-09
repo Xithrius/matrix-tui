@@ -19,6 +19,7 @@ pub enum MatrixAction {
         choice: LoginChoice,
         credentials: Option<LoginCredentials>,
     },
+    Logout,
     #[allow(dead_code)]
     GetRooms,
     GetRoomMessages(String),

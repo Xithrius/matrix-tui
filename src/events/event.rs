@@ -24,4 +24,5 @@ pub enum InternalEvent {
     SendMessage(String),
     SwitchRoom(String),
     Quit,
+    Logout,
 }
