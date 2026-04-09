@@ -170,6 +170,36 @@ impl MatrixThread {
         Ok(())
     }
 
+    async fn logout(&mut self) -> Result<()> {
+        let client = self
+            .client
+            .as_ref()
+            .context("Could not get client for logging out")?;
+
+        // reset server state
+        client.matrix_auth().logout().await?;
+
+        // delete database
+        let client_session = self
+            .client_session
+            .as_ref()
+            .context("Client session not found when logging out")?;
+        fs::remove_dir_all(client_session.db_path.clone()).await?;
+
+        // delete session file
+        let data_directory = get_data_dir().join("persist_session");
+        let session_file = data_directory.join("session");
+        fs::remove_file(session_file).await?;
+
+        // reset local state
+        self.client = None;
+        self.client_session = None;
+        self.sync_token = None;
+        self.rooms.clear();
+
+        Ok(())
+    }
+
     async fn handle_matrix_action(&mut self, action: &MatrixAction) -> Result<()> {
         let client = self
             .client
@@ -185,26 +215,7 @@ impl MatrixThread {
             }
             MatrixAction::SelectLogin { .. } => {}
             MatrixAction::Logout => {
-                // reset server state
-                client.matrix_auth().logout().await?;
-
-                // delete database
-                let client_session = self
-                    .client_session
-                    .as_ref()
-                    .context("Client session not found when logging out")?;
-                fs::remove_dir_all(client_session.db_path.clone()).await?;
-
-                // delete session file
-                let data_directory = get_data_dir().join("persist_session");
-                let session_file = data_directory.join("session");
-                fs::remove_file(session_file).await?;
-
-                // reset local state
-                self.client = None;
-                self.client_session = None;
-                self.sync_token = None;
-                self.rooms.clear();
+                self.logout().await?;
             }
             MatrixAction::GetRooms => {
                 let rooms = client.rooms();
