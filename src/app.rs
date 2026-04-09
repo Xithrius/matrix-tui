@@ -160,10 +160,6 @@ impl App {
                     return Ok(());
                 };
 
-                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
-                self.ui.navigation.rooms.set_selected_room_id(&first_room);
-                self.ui.messages.set_selected_room_id(first_room);
-
                 for room in rooms {
                     let room_id = room.id.clone();
                     self.ui.navigation.rooms.push_room(room_id.clone(), room);
@@ -174,6 +170,10 @@ impl App {
                         )))
                         .await?;
                 }
+
+                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
+                self.ui.navigation.rooms.set_selected_room_id(&first_room);
+                self.ui.messages.set_selected_room_id(first_room);
             }
             MatrixNotification::RoomMessages { room_id, messages } => {
                 for message in messages {
