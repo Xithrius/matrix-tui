@@ -152,7 +152,7 @@ impl Component for MessagesWidget {
             .iter()
             .map(|message| {
                 let cells = vec![
-                    Cell::from(message.datetime.clone()).style(*DATETIME_STYLE),
+                    Cell::from(message.datetime.format("%c").to_string()).style(*DATETIME_STYLE),
                     Cell::from(message.name.clone()),
                     Cell::from(message.content.clone()),
                 ];

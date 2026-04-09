@@ -178,7 +178,11 @@ impl App {
                 self.ui.navigation.rooms.set_selected_room_id(&first_room);
                 self.ui.messages.set_selected_room_id(first_room);
             }
-            MatrixNotification::RoomMessages { room_id, messages } => {
+            MatrixNotification::RoomMessages {
+                room_id,
+                mut messages,
+            } => {
+                messages.sort_by_key(|message| message.datetime);
                 for message in messages {
                     self.ui.messages.push_message(&room_id, message);
                 }

@@ -263,7 +263,7 @@ impl MatrixThread {
                     };
 
                     let datetime = match m.origin_server_ts.origin_server_chrono() {
-                        Ok(datetime) => datetime.format("%c"),
+                        Ok(datetime) => datetime,
                         Err(err) => {
                             error!(
                                 "Failed to convert origin server timestamp to datetime: {}",
@@ -276,11 +276,7 @@ impl MatrixThread {
                     let name = m.sender.localpart();
                     let content = m.content.body();
 
-                    let message = MatrixMessage::new(
-                        datetime.to_string(),
-                        name.to_owned(),
-                        content.to_owned(),
-                    );
+                    let message = MatrixMessage::new(datetime, name.to_owned(), content.to_owned());
                     messages.push(message);
                 }
 
