@@ -468,8 +468,7 @@ impl MatrixThread {
             .encryption()
             .cross_signing_status()
             .await
-            .map(|s| s.is_complete())
-            .unwrap_or(false);
+            .is_some_and(|s| s.is_complete());
 
         let needs_recovery_key = matches!(recovery_state, RecoveryState::Incomplete)
             || (matches!(recovery_state, RecoveryState::Enabled) && !cross_signing_complete);

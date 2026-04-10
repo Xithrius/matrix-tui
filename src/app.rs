@@ -145,9 +145,10 @@ impl App {
                     .set_status(Status::Info("Logging in...".to_string()), None);
             }
             MatrixNotification::SuccessfulLogin => {
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Login successful, setting up encryption...".to_string()), None);
+                self.ui.status_line.set_status(
+                    Status::Info("Login successful, setting up encryption...".to_string()),
+                    None,
+                );
             }
             MatrixNotification::LoginFailed => {
                 self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
@@ -157,7 +158,8 @@ impl App {
                     .set_status(Status::Error("Login failed".to_string()), Some(5));
             }
             MatrixNotification::NeedsRecoveryKey => {
-                self.switch_mode(Mode::Recovery(RecoveryMode::EnterKey)).await?;
+                self.switch_mode(Mode::Recovery(RecoveryMode::EnterKey))
+                    .await?;
                 self.ui.status_line.set_status(
                     Status::Info("Enter your recovery key to restore encryption".to_string()),
                     None,
@@ -165,7 +167,8 @@ impl App {
             }
             MatrixNotification::ShowNewRecoveryKey(key) => {
                 self.ui.recovery.set_recovery_key(key);
-                self.switch_mode(Mode::Recovery(RecoveryMode::ShowKey)).await?;
+                self.switch_mode(Mode::Recovery(RecoveryMode::ShowKey))
+                    .await?;
                 self.ui.status_line.set_status(
                     Status::Info("Save your recovery key, then press Enter".to_string()),
                     None,
@@ -173,10 +176,9 @@ impl App {
             }
             MatrixNotification::EncryptionSetupComplete => {
                 self.switch_mode(Mode::Messages).await?;
-                self.ui.status_line.set_status(
-                    Status::Info("Encryption ready".to_string()),
-                    Some(5),
-                );
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Encryption configured".to_string()), Some(5));
             }
             MatrixNotification::KnownRooms(rooms) => {
                 let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {

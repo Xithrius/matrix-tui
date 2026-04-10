@@ -13,12 +13,12 @@ use crate::{
 };
 
 /// Prompts the user to enter their existing recovery key.
-struct EnterKeyWidget {
+struct EnterRecoveryKeyWidget {
     input: UserInputWidget,
     event_tx: Sender<Event>,
 }
 
-impl EnterKeyWidget {
+impl EnterRecoveryKeyWidget {
     fn new(event_tx: Sender<Event>) -> Self {
         let input = UserInputWidget::new(Some("Recovery Key"));
         Self { input, event_tx }
@@ -29,7 +29,7 @@ impl EnterKeyWidget {
     }
 }
 
-impl Component for EnterKeyWidget {
+impl Component for EnterRecoveryKeyWidget {
     async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         match key.code {
             KeyCode::Enter => {
@@ -69,7 +69,7 @@ struct ShowKeyWidget {
 }
 
 impl ShowKeyWidget {
-    fn new(event_tx: Sender<Event>) -> Self {
+    const fn new(event_tx: Sender<Event>) -> Self {
         Self {
             recovery_key: None,
             event_tx,
@@ -103,20 +103,22 @@ impl Component for ShowKeyWidget {
         let [_, key_area] =
             Layout::vertical([Constraint::Percentage(100), Constraint::Length(5)]).areas(area);
 
-        let paragraph = Paragraph::new(format!("{key_display}\n\nPress Enter to confirm you have saved this key."))
-            .block(
-                Block::bordered()
-                    .title("Save Your Recovery Key")
-                    .border_type(BorderType::Rounded),
-            )
-            .wrap(tui::widgets::Wrap { trim: false });
+        let paragraph = Paragraph::new(format!(
+            "{key_display}\n\nPress Enter to confirm you have saved this key."
+        ))
+        .block(
+            Block::bordered()
+                .title("Save Your Recovery Key")
+                .border_type(BorderType::Rounded),
+        )
+        .wrap(tui::widgets::Wrap { trim: false });
 
         frame.render_widget(paragraph, key_area);
     }
 }
 
 pub struct RecoveryWidget {
-    enter_key: EnterKeyWidget,
+    enter_key: EnterRecoveryKeyWidget,
     show_key: ShowKeyWidget,
     mode: RecoveryMode,
 }
@@ -124,13 +126,13 @@ pub struct RecoveryWidget {
 impl RecoveryWidget {
     pub fn new(event_tx: Sender<Event>) -> Self {
         Self {
-            enter_key: EnterKeyWidget::new(event_tx.clone()),
+            enter_key: EnterRecoveryKeyWidget::new(event_tx.clone()),
             show_key: ShowKeyWidget::new(event_tx),
             mode: RecoveryMode::EnterKey,
         }
     }
 
-    pub fn set_recovery_mode(&mut self, mode: RecoveryMode) {
+    pub const fn set_recovery_mode(&mut self, mode: RecoveryMode) {
         match self.mode {
             RecoveryMode::EnterKey => self.enter_key.set_focused(false),
             RecoveryMode::ShowKey => {}
