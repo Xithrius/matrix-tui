@@ -6,12 +6,13 @@ use matrix_sdk::{
     Client, Room,
     config::SyncSettings,
     deserialized_responses::TimelineEventKind,
+    encryption::recovery::RecoveryState,
     event_handler::Ctx,
     room::MessagesOptions,
     ruma::{
         api::{
             Direction,
-            client::{filter::FilterDefinition, session::get_login_types::v3::LoginType},
+            client::{filter::FilterDefinition, session::get_login_types::v3::LoginType, uiaa},
         },
         events::{
             AnyMessageLikeEvent, AnyTimelineEvent, MessageLikeEvent,
@@ -35,7 +36,7 @@ use crate::{
     events::Event,
     matrix::{
         context::MatrixContext,
-        login::LoginChoice,
+        login::{LoginChoice, LoginCredentials},
         models::{MatrixMessage, MatrixRoom},
         session::{ClientSession, FullSession, build_client, persist_sync_token},
     },
@@ -214,7 +215,6 @@ impl MatrixThread {
             MatrixAction::StartLoggingIn => {
                 todo!();
             }
-            MatrixAction::SelectLogin { .. } => {}
             MatrixAction::Logout => {
                 self.logout().await?;
             }
@@ -291,6 +291,11 @@ impl MatrixThread {
                     )))
                     .await?;
             }
+            // These are consumed by the blocking recv loops in attempt_encryption_setup
+            // and should not arrive during normal main-loop operation.
+            MatrixAction::SelectLogin { .. }
+            | MatrixAction::ProvideRecoveryKey(_)
+            | MatrixAction::ConfirmRecoveryKeySaved => {}
         }
 
         Ok(())
@@ -303,11 +308,13 @@ impl MatrixThread {
         Ok(())
     }
 
-    async fn attempt_login(&mut self) -> Result<()> {
+    async fn attempt_login(&mut self) -> Result<Option<String>> {
         let (client, client_session) =
             build_client(&self.data_directory, self.homeserver.clone()).await?;
 
         self.send_login_choices(&client).await?;
+
+        let mut password: Option<String> = None;
 
         // Wait until we get a selected login action before continuing with regular event handling
         while let Some(action) = self.action_rx.recv().await {
@@ -316,6 +323,15 @@ impl MatrixThread {
                 credentials: login_credentials,
             } = action
             {
+                // Extract the password before consuming credentials, so it can be
+                // passed to the encryption bootstrap step that runs after sync.
+                if let Some(LoginCredentials::Password {
+                    password: ref pw, ..
+                }) = login_credentials
+                {
+                    password = Some(pw.clone());
+                }
+
                 self.event_tx
                     .send(Event::Matrix(MatrixEvent::Notification(
                         MatrixNotification::LoggingIn,
@@ -324,6 +340,7 @@ impl MatrixThread {
 
                 if let Err(err) = login_choice.login(&client, login_credentials).await {
                     warn!("Failed to login: {}", err);
+                    password = None;
                     self.event_tx
                         .send(Event::Matrix(MatrixEvent::Notification(
                             MatrixNotification::LoginFailed,
@@ -354,22 +371,10 @@ impl MatrixThread {
         let serialized_session = serde_json::to_string(&full_session)?;
         fs::write(self.session_file.clone(), serialized_session).await?;
 
-        // After logging in, you might want to verify this session with another one (see
-        // the `emoji_verification` example), or bootstrap cross-signing if this is your
-        // first session with encryption, or if you need to reset cross-signing because
-        // you don't have access to your old sessions (see the
-        // `cross_signing_bootstrap` example).
-
         self.client = Some(client);
         self.client_session = Some(client_session);
 
-        self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
-            )))
-            .await?;
-
-        Ok(())
+        Ok(password)
     }
 
     async fn attempt_session_restore(&mut self) -> Result<()> {
@@ -420,16 +425,113 @@ impl MatrixThread {
         Ok(())
     }
 
+    async fn attempt_encryption_setup(&mut self, password: Option<String>) -> Result<()> {
+        let client = self
+            .client
+            .as_ref()
+            .context("Could not get client for encryption setup")?
+            .clone();
+
+        // First call always fails with a UIAA challenge when cross-signing has never been
+        // bootstrapped. Returns Ok(()) immediately if already bootstrapped (no-op).
+        if let Err(err) = client
+            .encryption()
+            .bootstrap_cross_signing_if_needed(None)
+            .await
+        {
+            if let Some(uiaa_response) = err.as_uiaa_response() {
+                let pw = password.as_deref().context(
+                    "UIAA challenge received for cross-signing bootstrap but no password is available",
+                )?;
+                let user_id = client
+                    .user_id()
+                    .context("Could not get user ID for UIAA auth")?;
+
+                let mut uiaa_password = uiaa::Password::new(
+                    uiaa::UserIdentifier::UserIdOrLocalpart(user_id.localpart().to_owned()),
+                    pw.to_owned(),
+                );
+                uiaa_password.session = uiaa_response.session.clone();
+
+                client
+                    .encryption()
+                    .bootstrap_cross_signing(Some(uiaa::AuthData::Password(uiaa_password)))
+                    .await?;
+            } else {
+                return Err(err.into());
+            }
+        }
+
+        let recovery = client.encryption().recovery();
+        let recovery_state = recovery.state();
+        let cross_signing_complete = client
+            .encryption()
+            .cross_signing_status()
+            .await
+            .map(|s| s.is_complete())
+            .unwrap_or(false);
+
+        let needs_recovery_key = matches!(recovery_state, RecoveryState::Incomplete)
+            || (matches!(recovery_state, RecoveryState::Enabled) && !cross_signing_complete);
+
+        if matches!(recovery_state, RecoveryState::Disabled) {
+            let key = recovery.enable().await?;
+            info!("Recovery enabled, presenting new key to user");
+
+            self.event_tx
+                .send(Event::Matrix(MatrixEvent::Notification(
+                    MatrixNotification::ShowNewRecoveryKey(key),
+                )))
+                .await?;
+
+            while let Some(action) = self.action_rx.recv().await {
+                if matches!(action, MatrixAction::ConfirmRecoveryKeySaved) {
+                    break;
+                }
+            }
+        } else if needs_recovery_key {
+            info!(
+                "Recovery key needed (state: {:?}, cross-signing complete: {})",
+                recovery_state, cross_signing_complete
+            );
+
+            self.event_tx
+                .send(Event::Matrix(MatrixEvent::Notification(
+                    MatrixNotification::NeedsRecoveryKey,
+                )))
+                .await?;
+
+            while let Some(action) = self.action_rx.recv().await {
+                if let MatrixAction::ProvideRecoveryKey(key) = action {
+                    if let Err(err) = recovery.recover(&key).await {
+                        warn!("Failed to recover with provided key: {}", err);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+
+        self.event_tx
+            .send(Event::Matrix(MatrixEvent::Notification(
+                MatrixNotification::EncryptionSetupComplete,
+            )))
+            .await?;
+
+        Ok(())
+    }
+
     async fn run(&mut self) -> Result<()> {
         info!("Starting matrix task");
 
         loop {
             // TODO: Handle errors via sending information through the event sender
-            if self.session_file.exists() {
+            let password = if self.session_file.exists() {
                 self.attempt_session_restore().await?;
+                None
             } else {
-                self.attempt_login().await?;
-            }
+                self.attempt_login().await?
+            };
 
             self.add_event_handlers()?;
 
@@ -449,6 +551,8 @@ impl MatrixThread {
             let sync_token = response.next_batch.clone();
             settings = settings.token(sync_token.clone());
             persist_sync_token(&self.session_file, sync_token).await?;
+
+            self.attempt_encryption_setup(password).await?;
 
             let rooms = client.rooms();
             self.insert_rooms(&rooms);

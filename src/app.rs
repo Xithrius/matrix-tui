@@ -9,7 +9,7 @@ use tui::{
 
 use crate::{
     config::CoreConfig,
-    events::{Event, EventHandler, InternalEvent, LoginMode, Mode},
+    events::{Event, EventHandler, InternalEvent, LoginMode, Mode, RecoveryMode},
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
@@ -124,10 +124,9 @@ impl App {
                 self.switch_mode(Mode::RestoringSession).await?;
             }
             MatrixNotification::SuccessfulSessionRestore => {
-                self.switch_mode(Mode::Messages).await?;
                 self.ui.status_line.set_status(
-                    Status::Info("Session restored successfully".to_string()),
-                    Some(5),
+                    Status::Info("Session restored, setting up encryption...".to_string()),
+                    None,
                 );
             }
             MatrixNotification::LoginChoices(login_choices) => {
@@ -146,10 +145,9 @@ impl App {
                     .set_status(Status::Info("Logging in...".to_string()), None);
             }
             MatrixNotification::SuccessfulLogin => {
-                self.switch_mode(Mode::Messages).await?;
                 self.ui
                     .status_line
-                    .set_status(Status::Info("Login successful".to_string()), Some(5));
+                    .set_status(Status::Info("Login successful, setting up encryption...".to_string()), None);
             }
             MatrixNotification::LoginFailed => {
                 self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
@@ -157,6 +155,28 @@ impl App {
                 self.ui
                     .status_line
                     .set_status(Status::Error("Login failed".to_string()), Some(5));
+            }
+            MatrixNotification::NeedsRecoveryKey => {
+                self.switch_mode(Mode::Recovery(RecoveryMode::EnterKey)).await?;
+                self.ui.status_line.set_status(
+                    Status::Info("Enter your recovery key to restore encryption".to_string()),
+                    None,
+                );
+            }
+            MatrixNotification::ShowNewRecoveryKey(key) => {
+                self.ui.recovery.set_recovery_key(key);
+                self.switch_mode(Mode::Recovery(RecoveryMode::ShowKey)).await?;
+                self.ui.status_line.set_status(
+                    Status::Info("Save your recovery key, then press Enter".to_string()),
+                    None,
+                );
+            }
+            MatrixNotification::EncryptionSetupComplete => {
+                self.switch_mode(Mode::Messages).await?;
+                self.ui.status_line.set_status(
+                    Status::Info("Encryption ready".to_string()),
+                    Some(5),
+                );
             }
             MatrixNotification::KnownRooms(rooms) => {
                 let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {
@@ -248,6 +268,9 @@ impl App {
 
         match &mode {
             Mode::Input => self.ui.input.set_focused(true),
+            Mode::Recovery(recovery_mode) => {
+                self.ui.recovery.set_recovery_mode(recovery_mode.clone());
+            }
             Mode::Login(login_mode) => {
                 // TODO: Find where completed entering of credentials can be handled
                 if matches!(login_mode, LoginMode::Completed)
@@ -280,6 +303,7 @@ impl Component for App {
 
         match &self.mode {
             Mode::Login(_) => self.ui.authentication.handle_key_event(key).await,
+            Mode::Recovery(_) => self.ui.recovery.handle_key_event(key).await,
             Mode::Messages | Mode::RestoringSession => {
                 if key.code == KeyCode::Esc && self.mode == Mode::RestoringSession {
                     self.event_tx
@@ -301,6 +325,15 @@ impl Component for App {
                 Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)]).areas(area);
 
             self.ui.authentication.draw(frame, login_area);
+            self.ui.status_line.draw(frame, status_area);
+            return;
+        }
+
+        if let Mode::Recovery(_) = self.mode {
+            let [recovery_area, status_area] =
+                Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)]).areas(area);
+
+            self.ui.recovery.draw(frame, recovery_area);
             self.ui.status_line.draw(frame, status_area);
             return;
         }

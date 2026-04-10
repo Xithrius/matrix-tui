@@ -4,6 +4,7 @@ mod header;
 mod input;
 mod messages;
 mod navigation;
+mod recovery;
 mod spinner;
 mod status_line;
 mod user_input;
@@ -16,7 +17,8 @@ use crate::{
     events::{Event, Mode},
     ui::{
         authentication::AuthenticationWidget, header::HeaderWidget, input::InputWidget,
-        messages::MessagesWidget, navigation::NavigationUI, status_line::StatusLineWidget,
+        messages::MessagesWidget, navigation::NavigationUI, recovery::RecoveryWidget,
+        status_line::StatusLineWidget,
     },
 };
 
@@ -27,6 +29,7 @@ pub struct Ui {
     pub input: InputWidget,
     pub authentication: AuthenticationWidget,
     pub navigation: NavigationUI,
+    pub recovery: RecoveryWidget,
 }
 
 impl Ui {
@@ -41,7 +44,8 @@ impl Ui {
             messages: MessagesWidget::new(event_tx.clone()),
             input: InputWidget::new(event_tx.clone()),
             authentication: AuthenticationWidget::new(event_tx.clone()),
-            navigation: NavigationUI::new(event_tx),
+            navigation: NavigationUI::new(event_tx.clone()),
+            recovery: RecoveryWidget::new(event_tx),
         }
     }
 }
