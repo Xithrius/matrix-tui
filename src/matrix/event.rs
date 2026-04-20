@@ -27,6 +27,8 @@ pub enum MatrixAction {
         room_id: String,
         message_body: String,
     },
+    ProvideRecoveryKey(String),
+    ConfirmRecoveryKeySaved,
 }
 
 #[derive(Clone, Debug)]
@@ -55,4 +57,7 @@ pub enum MatrixNotification {
         room_id: String,
         message: MatrixMessage,
     },
+    NeedsRecoveryKey,
+    ShowNewRecoveryKey(String),
+    EncryptionSetupComplete,
 }
