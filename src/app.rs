@@ -169,10 +169,6 @@ impl App {
                 self.ui.recovery.set_recovery_key(key);
                 self.switch_mode(Mode::Recovery(RecoveryMode::ShowKey))
                     .await?;
-                self.ui.status_line.set_status(
-                    Status::Info("Save your recovery key, then press Enter".to_string()),
-                    None,
-                );
             }
             MatrixNotification::EncryptionSetupComplete => {
                 self.switch_mode(Mode::Messages).await?;
