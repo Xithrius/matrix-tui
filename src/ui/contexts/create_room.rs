@@ -78,7 +78,7 @@ impl Context for CreateRoomContext {
         self.widget.clear();
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let overlay = centered_rect(50, 30, area);
         let [_, input_area] =
             Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(overlay);

@@ -69,7 +69,7 @@ impl Context for ConfirmDeleteContext {
         self.selected_message = opts.selected_message;
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let overlay = centered_rect(40, 20, area);
         let paragraph = Paragraph::new("Delete this message?\n\n(Enter/y) Yes    (Esc/n) No")
             .block(

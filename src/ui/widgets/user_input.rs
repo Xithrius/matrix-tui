@@ -43,7 +43,7 @@ impl DeleteListener for InputListener {
 
 pub struct UserInputWidget {
     title: Option<String>,
-    /// Whether to render a visible cursor at draw time.
+    /// Whether to draw a visible cursor at draw time.
     focused: bool,
 
     input_listener: InputListener,

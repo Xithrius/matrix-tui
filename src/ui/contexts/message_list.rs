@@ -78,7 +78,7 @@ impl Context for MessageListContext {
         KeyResult::NotConsumed
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         self.widget.draw(frame, area);
     }
 }

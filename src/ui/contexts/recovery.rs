@@ -79,7 +79,7 @@ impl Context for RecoveryContext {
         self.key_input.set_focused(true);
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         match self.mode {
             RecoveryMode::EnterKey => {
                 let [_, input_area, _] = Layout::vertical([

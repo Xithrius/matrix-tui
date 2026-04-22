@@ -458,15 +458,15 @@ impl App {
                         .areas(rest_area);
 
                 self.ui.header.draw(frame, header_area);
-                self.ui.registry.sidebar.render(frame, sidebar_area);
-                self.ui.registry.message_list.render(frame, messages_area);
-                self.ui.registry.message_input.render(frame, input_area);
+                self.ui.registry.sidebar.draw(frame, sidebar_area);
+                self.ui.registry.message_list.draw(frame, messages_area);
+                self.ui.registry.message_input.draw(frame, input_area);
 
                 // Render overlays on top
                 for entry in self.ui.ctx_mgr.stack().to_vec() {
                     if let StackEntry::Overlay(key) = entry {
                         let overlay_area = centered_rect(60, 40, area);
-                        self.ui.registry.get_mut(key).render(frame, overlay_area);
+                        self.ui.registry.get_mut(key).draw(frame, overlay_area);
                     }
                 }
 
@@ -478,7 +478,7 @@ impl App {
 
     fn draw_focused_context(&mut self, frame: &mut Frame, area: Rect) {
         if let Some(key) = self.ui.ctx_mgr.current_key() {
-            self.ui.registry.get_mut(key).render(frame, area);
+            self.ui.registry.get_mut(key).draw(frame, area);
         }
     }
 }

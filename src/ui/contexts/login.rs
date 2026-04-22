@@ -122,7 +122,7 @@ impl Context for LoginContext {
         self.set_login_mode(LoginMode::Username);
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let [_, username_area, password_area, _] = Layout::vertical([
             Constraint::Fill(1),
             Constraint::Length(3),

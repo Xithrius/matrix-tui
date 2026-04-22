@@ -50,7 +50,7 @@ impl Keybinding {
 /// The core trait every UI context must implement.
 #[allow(dead_code)]
 ///
-/// A context is a singleton that owns one logical component's render logic,
+/// A context is a singleton that owns one logical component's draw logic,
 /// keybindings, and unbound key handling. It wraps a widget internally but
 /// exposes only domain-appropriate methods to callers.
 pub trait Context {
@@ -82,6 +82,6 @@ pub trait Context {
     /// Called when this context loses focus.
     fn on_blur(&mut self) {}
 
-    /// Render this context into the given area.
-    fn render(&mut self, frame: &mut Frame, area: Rect);
+    /// Draw this context into the given area.
+    fn draw(&mut self, frame: &mut Frame, area: Rect);
 }

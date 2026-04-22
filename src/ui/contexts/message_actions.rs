@@ -69,7 +69,7 @@ impl Context for MessageActionsContext {
         self.selected_message = opts.selected_message;
     }
 
-    fn render(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let overlay = centered_rect(40, 10, area);
         let items = vec![
             ListItem::new("(r) Reply"),
