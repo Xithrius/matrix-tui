@@ -1,30 +1,39 @@
-use tui::{Frame, layout::Rect};
+use tui::{
+    Frame,
+    crossterm::event::{KeyCode, KeyEvent},
+    layout::{Constraint, Layout, Rect},
+    widgets::{Block, BorderType, Paragraph},
+};
 
 use crate::{
     events::RecoveryMode,
     ui::{
-        action::{ContextKey, KeyResult},
+        action::{Action, ContextKey, FocusOpts, KeyResult},
         context::{Context, Keybinding, ViewName},
-        widgets::recovery::RecoveryWidget,
+        widgets::user_input::UserInputWidget,
     },
 };
 
 pub struct RecoveryContext {
-    widget: RecoveryWidget,
+    key_input: UserInputWidget,
+    recovery_key: Option<String>,
+    mode: RecoveryMode,
 }
 
 impl RecoveryContext {
     pub fn new() -> Self {
         Self {
-            widget: RecoveryWidget::new(),
+            key_input: UserInputWidget::new(Some("Recovery Key")),
+            recovery_key: None,
+            mode: RecoveryMode::EnterKey,
         }
     }
 
     // --- Domain API for matrix notification handlers ---
 
     pub fn show_new_key(&mut self, key: String) {
-        self.widget.set_recovery_key(key);
-        self.widget.set_recovery_mode(RecoveryMode::ShowKey);
+        self.recovery_key = Some(key);
+        self.mode = RecoveryMode::ShowKey;
     }
 }
 
@@ -45,11 +54,67 @@ impl Context for RecoveryContext {
         vec![]
     }
 
-    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyResult {
-        self.widget.handle_key(key)
+    fn handle_unbound_key(&mut self, key: KeyEvent) -> KeyResult {
+        match self.mode {
+            RecoveryMode::EnterKey => match key.code {
+                KeyCode::Enter => {
+                    let key_str = self.key_input.get_input().to_owned();
+                    if key_str.is_empty() {
+                        KeyResult::Consumed
+                    } else {
+                        self.key_input.clear();
+                        KeyResult::DoAction(Action::ProvideRecoveryKey(key_str))
+                    }
+                }
+                _ => self.key_input.handle_key(key),
+            },
+            RecoveryMode::ShowKey => match key.code {
+                KeyCode::Enter => KeyResult::DoAction(Action::ConfirmRecoveryKeySaved),
+                _ => KeyResult::NotConsumed,
+            },
+        }
+    }
+
+    fn on_focus(&mut self, _opts: FocusOpts) {
+        self.key_input.set_focused(true);
     }
 
     fn render(&mut self, frame: &mut Frame, area: Rect) {
-        self.widget.draw(frame, area);
+        match self.mode {
+            RecoveryMode::EnterKey => {
+                let [_, input_area, _] = Layout::vertical([
+                    Constraint::Fill(1),
+                    Constraint::Length(3),
+                    Constraint::Fill(1),
+                ])
+                .areas(area);
+                self.key_input.draw(frame, input_area);
+            }
+            RecoveryMode::ShowKey => {
+                let key_display = self
+                    .recovery_key
+                    .as_deref()
+                    .unwrap_or("Generating recovery key...");
+
+                let [_, key_area, _] = Layout::vertical([
+                    Constraint::Fill(1),
+                    Constraint::Length(5),
+                    Constraint::Fill(1),
+                ])
+                .areas(area);
+
+                let paragraph = Paragraph::new(format!(
+                    "{key_display}\n\nPress Enter to confirm you have saved this key."
+                ))
+                .block(
+                    Block::bordered()
+                        .title("Save Your Recovery Key")
+                        .border_type(BorderType::Rounded),
+                )
+                .wrap(tui::widgets::Wrap { trim: false });
+
+                frame.render_widget(paragraph, key_area);
+            }
+        }
     }
 }
