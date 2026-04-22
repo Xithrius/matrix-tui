@@ -5,12 +5,10 @@ use tui::{
     widgets::{Block, BorderType, Paragraph},
 };
 
+use super::user_input::UserInputWidget;
 use crate::{
     events::RecoveryMode,
-    ui::{
-        action::{Action, KeyResult},
-        user_input::UserInputWidget,
-    },
+    ui::action::{Action, KeyResult},
 };
 
 /// Prompts the user to enter their existing recovery key.

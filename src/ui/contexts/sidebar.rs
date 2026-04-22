@@ -9,7 +9,7 @@ use crate::{
     ui::{
         action::{Action, ContextKey, KeyResult},
         context::{Context, Keybinding, ViewName},
-        navigation::rooms::RoomNavigationWidget,
+        widgets::rooms::RoomNavigationWidget,
     },
 };
 

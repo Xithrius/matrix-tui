@@ -8,7 +8,7 @@ use tui::{
 use crate::ui::{
     action::{Action, ContextKey, FocusOpts, KeyResult},
     context::{Context, Keybinding, ViewName},
-    user_input::UserInputWidget,
+    widgets::user_input::UserInputWidget,
 };
 
 pub struct CreateRoomContext {

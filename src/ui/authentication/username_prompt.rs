@@ -4,7 +4,7 @@ use tui::{
     layout::{Constraint, Layout, Rect},
 };
 
-use crate::ui::{action::KeyResult, user_input::UserInputWidget};
+use crate::ui::{action::KeyResult, widgets::user_input::UserInputWidget};
 
 pub struct UsernamePromptWidget {
     input: UserInputWidget,

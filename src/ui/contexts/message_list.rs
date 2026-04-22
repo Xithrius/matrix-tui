@@ -9,7 +9,7 @@ use crate::{
     ui::{
         action::{Action, ContextKey, KeyResult},
         context::{Context, Keybinding, ViewName},
-        messages::MessagesWidget,
+        widgets::messages::MessagesWidget,
     },
 };
 

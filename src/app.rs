@@ -15,9 +15,11 @@ use crate::{
         handler::MatrixHandler,
     },
     ui::{
-        Action, ContextKey, FocusOpts, KeyResult, StackEntry, Status, Ui,
+        action::{Action, ContextKey, FocusOpts, KeyResult},
         context::Context,
-        context_manager::{cycle_static_backward, cycle_static_forward},
+        context_manager::{StackEntry, cycle_static_backward, cycle_static_forward},
+        ui::Ui,
+        widgets::status_line::Status,
     },
 };
 

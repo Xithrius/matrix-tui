@@ -1,6 +1,6 @@
 use tui::{Frame, layout::Rect, style::Style, text::Span, widgets::Paragraph};
 
-use crate::{config::CoreConfig, ui::spinner::SpinnerWidget};
+use crate::{config::CoreConfig, ui::widgets::spinner::SpinnerWidget};
 
 #[derive(Debug, Clone)]
 pub struct HeaderWidget {

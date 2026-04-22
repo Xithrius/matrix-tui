@@ -1,24 +1,14 @@
-mod action;
-mod authentication;
-pub(crate) mod context;
-pub(crate) mod context_manager;
-mod context_registry;
-pub mod contexts;
-mod header;
-mod messages;
-mod navigation;
-mod recovery;
-mod spinner;
-mod status_line;
-mod user_input;
-
-pub use action::{Action, ContextKey, FocusOpts, KeyResult};
-pub use context_manager::{ContextManager, StackEntry};
-pub use context_registry::ContextRegistry;
-pub use header::HeaderWidget;
-pub use status_line::{Status, StatusLineWidget};
-
-use crate::config::CoreConfig;
+use crate::{
+    config::CoreConfig,
+    ui::{
+        context_manager::ContextManager,
+        context_registry::ContextRegistry,
+        widgets::{
+            header::HeaderWidget,
+            status_line::{Status, StatusLineWidget},
+        },
+    },
+};
 
 pub struct Ui {
     pub registry: ContextRegistry,

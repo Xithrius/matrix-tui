@@ -5,7 +5,7 @@ use crate::{
     ui::{
         action::{ContextKey, KeyResult},
         context::{Context, Keybinding, ViewName},
-        recovery::RecoveryWidget,
+        widgets::recovery::RecoveryWidget,
     },
 };
 
