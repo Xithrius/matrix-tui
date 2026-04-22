@@ -4,12 +4,6 @@ use crate::matrix::{
 };
 
 #[derive(Clone, Debug)]
-pub enum MatrixEvent {
-    Action(MatrixAction),
-    Notification(MatrixNotification),
-}
-
-#[derive(Clone, Debug)]
 pub enum MatrixAction {
     #[allow(dead_code)]
     StartLoggingIn,
@@ -32,7 +26,7 @@ pub enum MatrixAction {
 }
 
 #[derive(Clone, Debug)]
-pub enum MatrixNotification {
+pub enum MatrixEvent {
     /// The user has selected [`MatrixAction::StartLoggingIn`]
     LoggingIn,
     LoginChoices(Vec<LoginChoice>),

@@ -30,7 +30,7 @@ use tokio::{
 use tracing::{debug, error, info, warn};
 use url::Url;
 
-use super::event::{MatrixAction, MatrixEvent, MatrixNotification};
+use super::event::{MatrixAction, MatrixEvent};
 use crate::{
     config::{CoreConfig, get_data_dir},
     events::Event,
@@ -127,9 +127,7 @@ impl MatrixThread {
         debug!("Available matrix login choices: {:?}", choices);
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::LoginChoices(choices),
-            )))
+            .send(Event::Matrix(MatrixEvent::LoginChoices(choices)))
             .await?;
 
         Ok(())
@@ -224,9 +222,7 @@ impl MatrixThread {
                 let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
 
                 self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::KnownRooms(known_rooms),
-                    )))
+                    .send(Event::Matrix(MatrixEvent::KnownRooms(known_rooms)))
                     .await?;
             }
             MatrixAction::SendMessage {
@@ -283,12 +279,10 @@ impl MatrixThread {
                 }
 
                 self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::RoomMessages {
-                            room_id: room_id.clone(),
-                            messages,
-                        },
-                    )))
+                    .send(Event::Matrix(MatrixEvent::RoomMessages {
+                        room_id: room_id.clone(),
+                        messages,
+                    }))
                     .await?;
             }
             // These are consumed by the blocking recv loops in attempt_encryption_setup
@@ -333,18 +327,14 @@ impl MatrixThread {
                 }
 
                 self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Notification(
-                        MatrixNotification::LoggingIn,
-                    )))
+                    .send(Event::Matrix(MatrixEvent::LoggingIn))
                     .await?;
 
                 if let Err(err) = login_choice.login(&client, login_credentials).await {
                     warn!("Failed to login: {}", err);
                     password = None;
                     self.event_tx
-                        .send(Event::Matrix(MatrixEvent::Notification(
-                            MatrixNotification::LoginFailed,
-                        )))
+                        .send(Event::Matrix(MatrixEvent::LoginFailed))
                         .await?;
                 } else {
                     break;
@@ -353,9 +343,7 @@ impl MatrixThread {
         }
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulLogin,
-            )))
+            .send(Event::Matrix(MatrixEvent::SuccessfulLogin))
             .await?;
 
         let matrix_auth = client.matrix_auth();
@@ -379,9 +367,7 @@ impl MatrixThread {
 
     async fn attempt_session_restore(&mut self) -> Result<()> {
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::RestoringSession,
-            )))
+            .send(Event::Matrix(MatrixEvent::RestoringSession))
             .await?;
 
         // The session was serialized as JSON in a file.
@@ -394,9 +380,7 @@ impl MatrixThread {
 
         info!("Restoring session for {}...", user_session.meta.user_id);
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::RestoringSession,
-            )))
+            .send(Event::Matrix(MatrixEvent::RestoringSession))
             .await?;
 
         // Build the client with the previous settings from the session.
@@ -417,9 +401,7 @@ impl MatrixThread {
 
         info!("Completed restoring session");
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::SuccessfulSessionRestore,
-            )))
+            .send(Event::Matrix(MatrixEvent::SuccessfulSessionRestore))
             .await?;
 
         Ok(())
@@ -478,9 +460,7 @@ impl MatrixThread {
             info!("Recovery enabled, presenting new key to user");
 
             self.event_tx
-                .send(Event::Matrix(MatrixEvent::Notification(
-                    MatrixNotification::ShowNewRecoveryKey(key),
-                )))
+                .send(Event::Matrix(MatrixEvent::ShowNewRecoveryKey(key)))
                 .await?;
 
             while let Some(action) = self.action_rx.recv().await {
@@ -495,9 +475,7 @@ impl MatrixThread {
             );
 
             self.event_tx
-                .send(Event::Matrix(MatrixEvent::Notification(
-                    MatrixNotification::NeedsRecoveryKey,
-                )))
+                .send(Event::Matrix(MatrixEvent::NeedsRecoveryKey))
                 .await?;
 
             while let Some(action) = self.action_rx.recv().await {
@@ -512,9 +490,7 @@ impl MatrixThread {
         }
 
         self.event_tx
-            .send(Event::Matrix(MatrixEvent::Notification(
-                MatrixNotification::EncryptionSetupComplete,
-            )))
+            .send(Event::Matrix(MatrixEvent::EncryptionSetupComplete))
             .await?;
 
         Ok(())
@@ -557,9 +533,7 @@ impl MatrixThread {
             self.insert_rooms(&rooms);
             let known_rooms: Vec<MatrixRoom> = rooms.iter().cloned().map(Into::into).collect();
             self.event_tx
-                .send(Event::Matrix(MatrixEvent::Notification(
-                    MatrixNotification::KnownRooms(known_rooms),
-                )))
+                .send(Event::Matrix(MatrixEvent::KnownRooms(known_rooms)))
                 .await?;
 
             let mut sync_stream = {

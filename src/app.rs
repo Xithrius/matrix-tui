@@ -11,7 +11,7 @@ use crate::{
     config::CoreConfig,
     events::{Event, EventHandler},
     matrix::{
-        event::{MatrixAction, MatrixEvent, MatrixNotification},
+        event::{MatrixAction, MatrixEvent},
         handler::MatrixHandler,
     },
     ui::{
@@ -318,73 +318,61 @@ impl App {
 
     async fn handle_matrix_event(&mut self, event: MatrixEvent) -> Result<()> {
         match event {
-            MatrixEvent::Action(action) => {
-                self.matrix_tx.send(action).await?;
-            }
-            MatrixEvent::Notification(notification) => {
-                self.handle_matrix_notification(notification).await?;
-            }
-        }
-        Ok(())
-    }
-
-    async fn handle_matrix_notification(&mut self, notification: MatrixNotification) -> Result<()> {
-        match notification {
-            MatrixNotification::RestoringSession => {
+            MatrixEvent::RestoringSession => {
                 self.ui
                     .status_line
                     .set_status(Status::Info("Restoring session...".to_string()), None);
                 self.ui.header.set_loading(true);
                 self.ui.header.set_mode("Restoring session".to_string());
             }
-            MatrixNotification::SuccessfulSessionRestore => {
+            MatrixEvent::SuccessfulSessionRestore => {
                 self.ui.status_line.set_status(
                     Status::Info("Session restored, setting up encryption...".to_string()),
                     None,
                 );
             }
-            MatrixNotification::LoginChoices(choices) => {
+            MatrixEvent::LoginChoices(choices) => {
                 self.ui.registry.login.set_login_choices(choices);
                 self.ui
                     .status_line
                     .set_status(Status::Info("Select login option".to_string()), None);
             }
-            MatrixNotification::LoggingIn => {
+            MatrixEvent::LoggingIn => {
                 self.ui
                     .status_line
                     .set_status(Status::Info("Logging in...".to_string()), None);
             }
-            MatrixNotification::SuccessfulLogin => {
+            MatrixEvent::SuccessfulLogin => {
                 self.ui.status_line.set_status(
                     Status::Info("Login successful, setting up encryption...".to_string()),
                     None,
                 );
             }
-            MatrixNotification::LoginFailed => {
+            MatrixEvent::LoginFailed => {
                 self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
                 self.ui
                     .status_line
                     .set_status(Status::Error("Login failed".to_string()), Some(5));
             }
-            MatrixNotification::NeedsRecoveryKey => {
+            MatrixEvent::NeedsRecoveryKey => {
                 self.ui.ctx_mgr.enter_recovery(&mut self.ui.registry);
                 self.ui.status_line.set_status(
                     Status::Info("Enter your recovery key to restore encryption".to_string()),
                     None,
                 );
             }
-            MatrixNotification::ShowNewRecoveryKey(key) => {
+            MatrixEvent::ShowNewRecoveryKey(key) => {
                 self.ui.registry.recovery.show_new_key(key);
                 // ctx_mgr is already in Recovery fullscreen; just update the widget.
             }
-            MatrixNotification::EncryptionSetupComplete => {
+            MatrixEvent::EncryptionSetupComplete => {
                 self.ui.header.set_loading(false);
                 self.ui.ctx_mgr.enter_session(&mut self.ui.registry);
                 self.ui
                     .status_line
                     .set_status(Status::Info("Encryption configured".to_string()), Some(5));
             }
-            MatrixNotification::KnownRooms(rooms) => {
+            MatrixEvent::KnownRooms(rooms) => {
                 let first_room = rooms.first().map(|r| r.id.clone());
 
                 for room in rooms {
@@ -400,7 +388,7 @@ impl App {
                     self.ui.registry.message_list.set_active_room(&id);
                 }
             }
-            MatrixNotification::RoomMessages {
+            MatrixEvent::RoomMessages {
                 room_id,
                 mut messages,
             } => {
@@ -412,7 +400,7 @@ impl App {
                         .push_message(&room_id, message);
                 }
             }
-            MatrixNotification::Message { room_id, message } => {
+            MatrixEvent::Message { room_id, message } => {
                 self.ui
                     .registry
                     .message_list

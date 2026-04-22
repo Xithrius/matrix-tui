@@ -7,10 +7,7 @@ use tokio::sync::mpsc::Sender;
 
 use crate::{
     events::Event,
-    matrix::{
-        event::{MatrixEvent, MatrixNotification},
-        models::MatrixMessage,
-    },
+    matrix::{event::MatrixEvent, models::MatrixMessage},
     utils::ChronoExt,
 };
 
@@ -44,11 +41,10 @@ impl MatrixContext {
 
         let message = MatrixMessage::new(datetime, name.to_owned(), content);
 
-        let room_message_event =
-            Event::Matrix(MatrixEvent::Notification(MatrixNotification::Message {
-                room_id: room.room_id().to_string(),
-                message,
-            }));
+        let room_message_event = Event::Matrix(MatrixEvent::Message {
+            room_id: room.room_id().to_string(),
+            message,
+        });
         self.event_tx.send(room_message_event).await?;
 
         Ok(())
