@@ -3,27 +3,36 @@ use tokio::sync::mpsc::{Sender, channel};
 use tracing::{debug, error};
 use tui::{
     DefaultTerminal, Frame,
-    crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind},
+    crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     layout::{Constraint, Layout, Rect},
 };
 
 use crate::{
     config::CoreConfig,
-    events::{Event, EventHandler, InternalEvent, LoginMode, Mode, RecoveryMode},
+    events::{Event, EventHandler},
     matrix::{
         event::{MatrixAction, MatrixEvent, MatrixNotification},
         handler::MatrixHandler,
     },
-    ui::{Component, Status, Ui},
+    ui::{
+        Action, ContextKey, FocusOpts, KeyResult, StackEntry, Status, Ui,
+        context::Context,
+        context_manager::{cycle_static_backward, cycle_static_forward},
+    },
 };
+
+/// Global keybindings checked as a final fallthrough when the focused context
+/// does not consume a key event.
+const GLOBAL_KEYBINDINGS: &[(KeyCode, KeyModifiers, Action)] = &[
+    (KeyCode::Char('q'), KeyModifiers::CONTROL, Action::Quit),
+    (KeyCode::Char('c'), KeyModifiers::CONTROL, Action::Quit),
+    (KeyCode::Char('l'), KeyModifiers::CONTROL, Action::Logout),
+];
 
 pub struct App {
     running: bool,
     events: EventHandler,
-    event_tx: Sender<Event>,
     matrix_tx: Sender<MatrixAction>,
-
-    mode: Mode,
     ui: Ui,
 }
 
@@ -31,87 +40,289 @@ impl App {
     pub fn new(config: &CoreConfig) -> Result<Self> {
         let (event_tx, event_rx) = channel(100);
         let (matrix_tx, matrix_rx) = channel(100);
-        let mode = Mode::default();
-
-        let ui = Ui::new(config, event_tx.clone(), mode.clone());
 
         let events = EventHandler::new(config, event_tx.clone(), event_rx);
-        MatrixHandler::new(config, event_tx.clone(), matrix_rx)?;
+        MatrixHandler::new(config, event_tx, matrix_rx)?;
 
         Ok(Self {
             running: true,
             events,
-            event_tx,
             matrix_tx,
-            mode,
-            ui,
+            ui: Ui::new(config),
         })
     }
 
     pub async fn run(mut self, mut terminal: DefaultTerminal) -> Result<()> {
         while self.running {
-            terminal.draw(|frame| self.draw(frame, frame.area()))?;
+            terminal.draw(|frame| self.draw(frame))?;
             self.handle_events().await?;
         }
-
         Ok(())
     }
 
-    async fn handle_crossterm_event(&mut self, event: CrosstermEvent) -> Result<()> {
-        if let CrosstermEvent::Key(key_event) = event
-            && key_event.kind == KeyEventKind::Press
-        {
-            self.handle_key_event(key_event).await?;
+    // ─── Event loop ──────────────────────────────────────────────────────────
+
+    pub async fn handle_events(&mut self) -> Result<()> {
+        let Some(event) = self.events.next().await else {
+            return Ok(());
+        };
+
+        match event {
+            Event::Tick => self.tick(),
+            Event::Crossterm(CrosstermEvent::Key(key)) if key.kind == KeyEventKind::Press => {
+                self.handle_key_event(key).await?;
+            }
+            Event::Crossterm(_) => {}
+            Event::Matrix(event) => self.handle_matrix_event(event).await?,
         }
 
         Ok(())
     }
 
-    async fn handle_internal_event(&mut self, event: InternalEvent) -> Result<()> {
-        match event {
-            InternalEvent::SwitchMode(mode) => {
-                self.switch_mode(mode).await?;
-            }
-            InternalEvent::Quit => {
-                self.quit();
-            }
-            InternalEvent::Logout => {
-                self.logout().await?;
-            }
-            InternalEvent::SendMessage(content) => {
-                // TODO: Add to app context and pass reference to messages UI
-                let Some(room_id) = self.ui.navigation.rooms.get_selected_room_id() else {
-                    error!("Could not find selected room ID when sending message");
-                    return Ok(());
-                };
+    fn tick(&mut self) {
+        self.ui.header.increment_spinner();
+        self.ui.status_line.tick();
+    }
 
+    // ─── Key dispatch ─────────────────────────────────────────────────────────
+
+    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        debug!("Key event: {:?}", key);
+
+        let Some(focused_key) = self.ui.ctx_mgr.current_key() else {
+            return Ok(());
+        };
+
+        // Borrow the context, dispatch, then release the borrow before execute_action.
+        let result = {
+            let ctx = self.ui.registry.get_mut(focused_key);
+            Self::dispatch(key, ctx)
+        };
+
+        if let KeyResult::DoAction(action) = result {
+            self.execute_action(action).await?;
+        }
+
+        Ok(())
+    }
+
+    /// Three-phase dispatch: keybinding table → unbound handler → global bindings.
+    fn dispatch(key: KeyEvent, ctx: &mut dyn Context) -> KeyResult {
+        // Phase 1: declarative keybinding table
+        for binding in ctx.keybindings() {
+            if binding.matches(key) {
+                return KeyResult::DoAction(binding.action);
+            }
+        }
+        // Phase 2: context-specific unbound key handler
+        match ctx.handle_unbound_key(key) {
+            KeyResult::NotConsumed => {}
+            other => return other,
+        }
+        // Phase 3: global keybindings (always available)
+        for (code, mods, action) in GLOBAL_KEYBINDINGS {
+            if key.code == *code && key.modifiers == *mods {
+                return KeyResult::DoAction(action.clone());
+            }
+        }
+        KeyResult::NotConsumed
+    }
+
+    // ─── Action execution ────────────────────────────────────────────────────
+
+    async fn execute_action(&mut self, action: Action) -> Result<()> {
+        match action {
+            // --- Application ---
+            Action::Quit => {
+                self.running = false;
+            }
+            Action::Logout => {
+                self.matrix_tx.send(MatrixAction::Logout).await?;
+                self.ui
+                    .status_line
+                    .set_status(Status::Info("Logging out...".to_string()), None);
+                self.ui.registry.sidebar.clear();
+                self.ui.registry.message_list.clear();
+                self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
+            }
+
+            // --- Navigation ---
+            Action::PopContext => {
+                self.ui.ctx_mgr.pop(&mut self.ui.registry);
+            }
+            Action::PushContext(key, opts) => {
+                self.ui.ctx_mgr.push(key, opts, &mut self.ui.registry);
+            }
+
+            // --- Panel focus cycling ---
+            Action::CycleFocusForward => {
+                if let Some(current) = self.ui.ctx_mgr.current_key() {
+                    let next = cycle_static_forward(current);
+                    self.ui.ctx_mgr.activate_static(next, &mut self.ui.registry);
+                }
+            }
+            Action::CycleFocusBackward => {
+                if let Some(current) = self.ui.ctx_mgr.current_key() {
+                    let prev = cycle_static_backward(current);
+                    self.ui.ctx_mgr.activate_static(prev, &mut self.ui.registry);
+                }
+            }
+            Action::FocusSidebar => {
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::Sidebar, &mut self.ui.registry);
+            }
+            Action::FocusMessageList => {
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::MessageList, &mut self.ui.registry);
+            }
+            Action::FocusMessageInput => {
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+            }
+
+            // --- Messaging ---
+            Action::SendMessage => {
+                let text = self.ui.registry.message_input.take_buffer();
+                if !text.trim().is_empty() {
+                    let room_id = self.ui.registry.sidebar.get_selected_room_id();
+                    if let Some(room_id) = room_id {
+                        self.matrix_tx
+                            .send(MatrixAction::SendMessage {
+                                room_id,
+                                message_body: text,
+                            })
+                            .await?;
+                    } else {
+                        error!("SendMessage: no room selected");
+                    }
+                }
+            }
+            Action::SelectMessage(idx) => {
+                self.ui.registry.message_actions.selected_message = Some(idx);
+                self.ui.ctx_mgr.push(
+                    ContextKey::MessageActions,
+                    FocusOpts {
+                        selected_message: Some(idx),
+                        ..Default::default()
+                    },
+                    &mut self.ui.registry,
+                );
+            }
+            Action::ReplyToMessage(idx) => {
+                self.ui.registry.message_input.reply_to = Some(idx);
+                self.ui.ctx_mgr.pop(&mut self.ui.registry);
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+            }
+            Action::EditMessage(idx) => {
+                // Note: editing by index only; full edit support requires message IDs
+                self.ui.registry.message_input.editing = Some(idx);
+                self.ui.ctx_mgr.pop(&mut self.ui.registry);
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+            }
+            Action::DeleteMessage(idx) => {
+                self.ui.ctx_mgr.push(
+                    ContextKey::ConfirmDelete,
+                    FocusOpts {
+                        selected_message: Some(idx),
+                        ..Default::default()
+                    },
+                    &mut self.ui.registry,
+                );
+            }
+            Action::ConfirmDeleteMessage(_idx) => {
+                // Full delete support requires message IDs; pop overlays for now
+                self.ui.ctx_mgr.pop(&mut self.ui.registry); // close ConfirmDelete
+                self.ui.ctx_mgr.pop(&mut self.ui.registry); // close MessageActions
+            }
+            Action::ScrollMessagesUp => {
+                todo!()
+            }
+            Action::ScrollMessagesDown => {
+                todo!()
+            }
+
+            // --- Rooms ---
+            Action::SelectRoom(id) => {
+                self.ui.registry.sidebar.select_room(&id);
+                self.ui.registry.message_list.set_active_room(&id);
+                self.ui
+                    .ctx_mgr
+                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+                // Request messages for the newly selected room
                 self.matrix_tx
-                    .send(MatrixAction::SendMessage {
-                        room_id,
-                        message_body: content,
-                    })
+                    .send(MatrixAction::GetRoomMessages(id))
                     .await?;
             }
-            InternalEvent::SwitchRoom(room_id) => {
-                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
-                self.ui.navigation.rooms.set_selected_room_id(&room_id);
-                self.ui.messages.set_selected_room_id(room_id);
+            Action::OpenCreateRoom => {
+                self.ui.ctx_mgr.push(
+                    ContextKey::CreateRoom,
+                    FocusOpts::default(),
+                    &mut self.ui.registry,
+                );
+            }
+            Action::ConfirmCreateRoom => {
+                let name = self.ui.registry.create_room.take_name_buffer();
+                if !name.trim().is_empty() {
+                    // Placeholder: room creation via matrix SDK not yet implemented
+                    debug!("Create room: {name}");
+                }
+                self.ui.ctx_mgr.pop(&mut self.ui.registry);
+            }
+            Action::ScrollRoomsUp => {
+                self.ui.registry.sidebar.scroll_up();
+            }
+            Action::ScrollRoomsDown => {
+                self.ui.registry.sidebar.scroll_down();
+            }
+
+            // --- Auth ---
+            Action::SubmitLogin => {
+                let choice = self.ui.registry.login.selected_login_choice();
+                let credentials = self.ui.registry.login.take_credentials();
+                if let Some(choice) = choice {
+                    self.matrix_tx
+                        .send(MatrixAction::SelectLogin {
+                            choice,
+                            credentials,
+                        })
+                        .await?;
+                }
+            }
+
+            // --- Recovery ---
+            Action::ProvideRecoveryKey(key) => {
+                self.matrix_tx
+                    .send(MatrixAction::ProvideRecoveryKey(key))
+                    .await?;
+            }
+            Action::ConfirmRecoveryKeySaved => {
+                self.matrix_tx
+                    .send(MatrixAction::ConfirmRecoveryKeySaved)
+                    .await?;
             }
         }
 
         Ok(())
     }
+
+    // ─── Matrix notification handling ────────────────────────────────────────
 
     async fn handle_matrix_event(&mut self, event: MatrixEvent) -> Result<()> {
         match event {
-            MatrixEvent::Action(matrix_action) => {
-                self.matrix_tx.send(matrix_action).await?;
+            MatrixEvent::Action(action) => {
+                self.matrix_tx.send(action).await?;
             }
-            MatrixEvent::Notification(matrix_notification) => {
-                self.handle_matrix_notification(matrix_notification).await?;
+            MatrixEvent::Notification(notification) => {
+                self.handle_matrix_notification(notification).await?;
             }
         }
-
         Ok(())
     }
 
@@ -121,7 +332,8 @@ impl App {
                 self.ui
                     .status_line
                     .set_status(Status::Info("Restoring session...".to_string()), None);
-                self.switch_mode(Mode::RestoringSession).await?;
+                self.ui.header.set_loading(true);
+                self.ui.header.set_mode("Restoring session".to_string());
             }
             MatrixNotification::SuccessfulSessionRestore => {
                 self.ui.status_line.set_status(
@@ -129,15 +341,11 @@ impl App {
                     None,
                 );
             }
-            MatrixNotification::LoginChoices(login_choices) => {
-                self.ui.authentication.set_login_choices(login_choices);
+            MatrixNotification::LoginChoices(choices) => {
+                self.ui.registry.login.set_login_choices(choices);
                 self.ui
                     .status_line
                     .set_status(Status::Info("Select login option".to_string()), None);
-            }
-            MatrixNotification::Message { room_id, message } => {
-                // TODO: Add to app context and pass reference to messages UI
-                self.ui.messages.push_message(&room_id, message);
             }
             MatrixNotification::LoggingIn => {
                 self.ui
@@ -151,207 +359,140 @@ impl App {
                 );
             }
             MatrixNotification::LoginFailed => {
-                self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
-                    .await?;
+                self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
                 self.ui
                     .status_line
                     .set_status(Status::Error("Login failed".to_string()), Some(5));
             }
             MatrixNotification::NeedsRecoveryKey => {
-                self.switch_mode(Mode::Recovery(RecoveryMode::EnterKey))
-                    .await?;
+                self.ui.ctx_mgr.enter_recovery(&mut self.ui.registry);
                 self.ui.status_line.set_status(
                     Status::Info("Enter your recovery key to restore encryption".to_string()),
                     None,
                 );
             }
             MatrixNotification::ShowNewRecoveryKey(key) => {
-                self.ui.recovery.set_recovery_key(key);
-                self.switch_mode(Mode::Recovery(RecoveryMode::ShowKey))
-                    .await?;
+                self.ui.registry.recovery.show_new_key(key);
+                // ctx_mgr is already in Recovery fullscreen; just update the widget.
             }
             MatrixNotification::EncryptionSetupComplete => {
-                self.switch_mode(Mode::Messages).await?;
+                self.ui.header.set_loading(false);
+                self.ui.ctx_mgr.enter_session(&mut self.ui.registry);
                 self.ui
                     .status_line
                     .set_status(Status::Info("Encryption configured".to_string()), Some(5));
             }
             MatrixNotification::KnownRooms(rooms) => {
-                let Some(first_room) = rooms.first().map(|room| room.id.clone()) else {
-                    return Ok(());
-                };
+                let first_room = rooms.first().map(|r| r.id.clone());
 
                 for room in rooms {
                     let room_id = room.id.clone();
-                    self.ui.navigation.rooms.push_room(room_id.clone(), room);
-
-                    self.event_tx
-                        .send(Event::Matrix(MatrixEvent::Action(
-                            MatrixAction::GetRoomMessages(room_id),
-                        )))
+                    self.ui.registry.sidebar.push_room(room);
+                    self.matrix_tx
+                        .send(MatrixAction::GetRoomMessages(room_id))
                         .await?;
                 }
 
-                // TODO: Pass down the initial room ID as a reference instead of setting it everywhere
-                self.ui.navigation.rooms.set_selected_room_id(&first_room);
-                self.ui.messages.set_selected_room_id(first_room);
+                if let Some(id) = first_room {
+                    self.ui.registry.sidebar.select_room(&id);
+                    self.ui.registry.message_list.set_active_room(&id);
+                }
             }
             MatrixNotification::RoomMessages {
                 room_id,
                 mut messages,
             } => {
-                messages.sort_by_key(|message| message.datetime);
+                messages.sort_by_key(|m| m.datetime);
                 for message in messages {
-                    self.ui.messages.push_message(&room_id, message);
+                    self.ui
+                        .registry
+                        .message_list
+                        .push_message(&room_id, message);
                 }
             }
-        }
-
-        Ok(())
-    }
-
-    pub async fn handle_events(&mut self) -> Result<()> {
-        let Some(event) = self.events.next().await else {
-            return Ok(());
-        };
-
-        match event {
-            Event::Tick => {
-                self.tick();
-            }
-            Event::Crossterm(event) => {
-                self.handle_crossterm_event(event).await?;
-            }
-            Event::Internal(event) => {
-                self.handle_internal_event(event).await?;
-            }
-            Event::Matrix(event) => {
-                self.handle_matrix_event(event).await?;
+            MatrixNotification::Message { room_id, message } => {
+                self.ui
+                    .registry
+                    .message_list
+                    .push_message(&room_id, message);
             }
         }
 
         Ok(())
     }
 
-    /// Handles the tick event of the terminal.
-    ///
-    /// The tick event is where you can update the state of your application with any logic that
-    /// needs to be updated at a fixed frame rate. E.g. polling a server, updating an animation.
-    pub fn tick(&mut self) {
-        self.ui.header.increment_spinner();
-        self.ui.status_line.tick();
-    }
+    // ─── Rendering ───────────────────────────────────────────────────────────
 
-    pub const fn quit(&mut self) {
-        self.running = false;
-    }
+    fn draw(&mut self, frame: &mut Frame) {
+        let area = frame.area();
 
-    pub async fn logout(&mut self) -> Result<()> {
-        self.matrix_tx.send(MatrixAction::Logout).await?;
-        self.switch_mode(Mode::Login(LoginMode::SelectLoginChoice))
-            .await?;
-        self.ui
-            .status_line
-            .set_status(Status::Info("Logging out...".to_string()), None);
+        // Update header mode text from manager state
+        let mode_str = self.ui.ctx_mgr.mode_display().to_string();
+        self.ui.header.set_mode(mode_str);
 
-        // clean up ui state
-        self.ui.navigation.rooms.clear();
-        self.ui.messages.clear();
+        match self.ui.ctx_mgr.stack().last() {
+            Some(StackEntry::Fullscreen(_)) => {
+                let [content_area, status_area] =
+                    Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)])
+                        .areas(area);
 
-        Ok(())
-    }
-
-    pub async fn switch_mode(&mut self, mode: Mode) -> Result<()> {
-        debug!("Switching to mode: {:?}", mode);
-
-        match &mode {
-            Mode::Input => self.ui.input.set_focused(true),
-            Mode::Recovery(recovery_mode) => {
-                self.ui.recovery.set_recovery_mode(recovery_mode.clone());
+                self.draw_focused_context(frame, content_area);
+                self.ui.status_line.draw(frame, status_area);
             }
-            Mode::Login(login_mode) => {
-                // TODO: Find where completed entering of credentials can be handled
-                if matches!(login_mode, LoginMode::Completed)
-                    && let Some(login_choice) = self.ui.authentication.selected_login_choice()
-                {
-                    let credentials = self.ui.authentication.get_login_credentials();
-                    let matrix_action =
-                        Event::Matrix(MatrixEvent::Action(MatrixAction::SelectLogin {
-                            choice: login_choice,
-                            credentials,
-                        }));
-                    self.event_tx.send(matrix_action).await?;
+            Some(StackEntry::Static | StackEntry::Overlay(_)) => {
+                let [header_area, content_area, status_area] = Layout::vertical([
+                    Constraint::Length(1),
+                    Constraint::Percentage(100),
+                    Constraint::Length(1),
+                ])
+                .areas(area);
+
+                let [sidebar_area, rest_area] =
+                    Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)])
+                        .areas(content_area);
+
+                let [messages_area, input_area] =
+                    Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)])
+                        .areas(rest_area);
+
+                self.ui.header.draw(frame, header_area);
+                self.ui.registry.sidebar.render(frame, sidebar_area);
+                self.ui.registry.message_list.render(frame, messages_area);
+                self.ui.registry.message_input.render(frame, input_area);
+
+                // Render overlays on top
+                for entry in self.ui.ctx_mgr.stack().to_vec() {
+                    if let StackEntry::Overlay(key) = entry {
+                        let overlay_area = centered_rect(60, 40, area);
+                        self.ui.registry.get_mut(key).render(frame, overlay_area);
+                    }
                 }
 
-                self.ui.authentication.set_login_mode(login_mode.clone());
+                self.ui.status_line.draw(frame, status_area);
             }
-            _ => {}
+            None => {}
         }
+    }
 
-        self.ui.header.set_mode(mode.clone());
-        self.mode = mode;
-
-        Ok(())
+    fn draw_focused_context(&mut self, frame: &mut Frame, area: Rect) {
+        if let Some(key) = self.ui.ctx_mgr.current_key() {
+            self.ui.registry.get_mut(key).render(frame, area);
+        }
     }
 }
 
-impl Component for App {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        debug!("Received key event: {:?}", key);
+fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
+    let vertical = Layout::vertical([
+        Constraint::Percentage((100 - percent_y) / 2),
+        Constraint::Percentage(percent_y),
+        Constraint::Percentage((100 - percent_y) / 2),
+    ])
+    .split(area);
 
-        match &self.mode {
-            Mode::Login(_) => self.ui.authentication.handle_key_event(key).await,
-            Mode::Recovery(_) => self.ui.recovery.handle_key_event(key).await,
-            Mode::Messages | Mode::RestoringSession => {
-                if key.code == KeyCode::Esc && self.mode == Mode::RestoringSession {
-                    self.event_tx
-                        .send(Event::Internal(InternalEvent::Quit))
-                        .await?;
-                    return Ok(());
-                }
-
-                self.ui.messages.handle_key_event(key).await
-            }
-            Mode::Input => self.ui.input.handle_key_event(key).await,
-            Mode::RoomNavigation => self.ui.navigation.rooms.handle_key_event(key).await,
-        }
-    }
-
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        if let Mode::Login(_) = self.mode {
-            let [login_area, status_area] =
-                Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)]).areas(area);
-
-            self.ui.authentication.draw(frame, login_area);
-            self.ui.status_line.draw(frame, status_area);
-            return;
-        }
-
-        if let Mode::Recovery(_) = self.mode {
-            let [recovery_area, status_area] =
-                Layout::vertical([Constraint::Percentage(100), Constraint::Length(1)]).areas(area);
-
-            self.ui.recovery.draw(frame, recovery_area);
-            self.ui.status_line.draw(frame, status_area);
-            return;
-        }
-
-        let [header_area, content_area, input_area, status_area] = Layout::vertical([
-            Constraint::Length(1),
-            Constraint::Percentage(100),
-            Constraint::Length(3),
-            Constraint::Length(1),
-        ])
-        .areas(area);
-
-        let [navigation_area, messages_area] =
-            Layout::horizontal([Constraint::Length(30), Constraint::Percentage(100)])
-                .areas(content_area);
-
-        self.ui.header.draw(frame, header_area);
-        self.ui.navigation.rooms.draw(frame, navigation_area);
-        self.ui.messages.draw(frame, messages_area);
-        self.ui.input.draw(frame, input_area);
-        self.ui.status_line.draw(frame, status_area);
-    }
+    Layout::horizontal([
+        Constraint::Percentage((100 - percent_x) / 2),
+        Constraint::Percentage(percent_x),
+        Constraint::Percentage((100 - percent_x) / 2),
+    ])
+    .split(vertical[1])[1]
 }

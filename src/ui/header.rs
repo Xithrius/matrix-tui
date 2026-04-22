@@ -1,23 +1,19 @@
 use tui::{Frame, layout::Rect, style::Style, text::Span, widgets::Paragraph};
 
-use crate::{
-    config::CoreConfig,
-    events::Mode,
-    ui::{component::Component, spinner::SpinnerWidget},
-};
+use crate::{config::CoreConfig, ui::spinner::SpinnerWidget};
 
 #[derive(Debug, Clone)]
 pub struct HeaderWidget {
     motd: String,
-    mode: Mode,
+    mode: String,
     spinner: SpinnerWidget,
 }
 
 impl HeaderWidget {
-    pub const fn new(config: &CoreConfig, motd: String, mode: Mode) -> Self {
+    pub const fn new(config: &CoreConfig, motd: String) -> Self {
         Self {
             motd,
-            mode,
+            mode: String::new(),
             spinner: SpinnerWidget::new(config.terminal.frame_rate),
         }
     }
@@ -28,19 +24,16 @@ impl HeaderWidget {
         }
     }
 
-    pub const fn set_mode(&mut self, mode: Mode) {
-        if matches!(mode, Mode::RestoringSession) {
-            self.spinner.set_active(true);
-        } else {
-            self.spinner.set_active(false);
-        }
-
+    pub fn set_mode(&mut self, mode: String) {
         self.mode = mode;
     }
-}
 
-impl Component for HeaderWidget {
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    /// Enable or disable the loading spinner (e.g. during session restore).
+    pub const fn set_loading(&mut self, loading: bool) {
+        self.spinner.set_active(loading);
+    }
+
+    pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let motd_span = Span::styled(self.motd.clone(), Style::new().dim());
         let motd = Paragraph::new(motd_span).left_aligned();
         frame.render_widget(motd, area);
@@ -50,7 +43,7 @@ impl Component for HeaderWidget {
 
             format!("{} {}", spinner_state, self.mode)
         } else {
-            self.mode.to_string()
+            self.mode.clone()
         };
 
         let mode_span = Span::styled(mode, Style::new().dim());

@@ -1,63 +1,50 @@
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
 use tui::{
+    Frame,
     crossterm::event::{KeyCode, KeyEvent},
-    prelude::*,
+    layout::{Constraint, Layout, Rect},
     widgets::{Block, BorderType, Paragraph},
 };
 
 use crate::{
-    events::{Event, RecoveryMode},
-    matrix::event::{MatrixAction, MatrixEvent},
-    ui::{component::Component, user_input::UserInputWidget},
+    events::RecoveryMode,
+    ui::{
+        action::{Action, KeyResult},
+        user_input::UserInputWidget,
+    },
 };
 
 /// Prompts the user to enter their existing recovery key.
 struct EnterRecoveryKeyWidget {
     input: UserInputWidget,
-    event_tx: Sender<Event>,
 }
 
 impl EnterRecoveryKeyWidget {
-    fn new(event_tx: Sender<Event>) -> Self {
-        let input = UserInputWidget::new(Some("Recovery Key"));
-        Self { input, event_tx }
+    fn new() -> Self {
+        Self {
+            input: UserInputWidget::new(Some("Recovery Key")),
+        }
     }
 
     pub const fn set_focused(&mut self, focused: bool) {
         self.input.set_focused(focused);
     }
-}
 
-impl Component for EnterRecoveryKeyWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        match key.code {
-            KeyCode::Enter => {
-                let key_str = self.input.get_input();
-                if key_str.is_empty() {
-                    return Ok(());
-                }
-                let recovery_key = key_str.to_owned();
-                self.input.clear();
-
-                self.event_tx
-                    .send(Event::Matrix(MatrixEvent::Action(
-                        MatrixAction::ProvideRecoveryKey(recovery_key),
-                    )))
-                    .await?;
-            }
-            _ => {
-                self.input.handle_key_event(key).await?;
-            }
-        }
-
-        Ok(())
+    fn get_input(&self) -> &str {
+        self.input.get_input()
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    fn clear(&mut self) {
+        self.input.clear();
+    }
+
+    /// Delegate text-input keys to the inner widget.
+    fn handle_text_key(&mut self, key: KeyEvent) -> KeyResult {
+        self.input.handle_key(key)
+    }
+
+    fn draw(&self, frame: &mut Frame, area: Rect) {
         let [_, input_area] =
             Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(area);
-
         self.input.draw(frame, input_area);
     }
 }
@@ -65,36 +52,18 @@ impl Component for EnterRecoveryKeyWidget {
 /// Displays a newly generated recovery key that the user must record before confirming.
 struct ShowKeyWidget {
     recovery_key: Option<String>,
-    event_tx: Sender<Event>,
 }
 
 impl ShowKeyWidget {
-    const fn new(event_tx: Sender<Event>) -> Self {
-        Self {
-            recovery_key: None,
-            event_tx,
-        }
+    const fn new() -> Self {
+        Self { recovery_key: None }
     }
 
-    pub fn set_key(&mut self, key: String) {
+    fn set_key(&mut self, key: String) {
         self.recovery_key = Some(key);
     }
-}
 
-impl Component for ShowKeyWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        if key.code == KeyCode::Enter {
-            self.event_tx
-                .send(Event::Matrix(MatrixEvent::Action(
-                    MatrixAction::ConfirmRecoveryKeySaved,
-                )))
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    fn draw(&self, frame: &mut Frame, area: Rect) {
         let key_display = self
             .recovery_key
             .as_deref()
@@ -124,10 +93,10 @@ pub struct RecoveryWidget {
 }
 
 impl RecoveryWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
+    pub fn new() -> Self {
         Self {
-            enter_key: EnterRecoveryKeyWidget::new(event_tx.clone()),
-            show_key: ShowKeyWidget::new(event_tx),
+            enter_key: EnterRecoveryKeyWidget::new(),
+            show_key: ShowKeyWidget::new(),
             mode: RecoveryMode::EnterKey,
         }
     }
@@ -149,17 +118,32 @@ impl RecoveryWidget {
     pub fn set_recovery_key(&mut self, key: String) {
         self.show_key.set_key(key);
     }
-}
 
-impl Component for RecoveryWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+    /// Synchronous key handler. Returns `DoAction(ProvideRecoveryKey(key))`
+    /// when the user submits the entry key, or `DoAction(ConfirmRecoveryKeySaved)`
+    /// on the show-key screen.
+    pub fn handle_key(&mut self, key: KeyEvent) -> KeyResult {
         match self.mode {
-            RecoveryMode::EnterKey => self.enter_key.handle_key_event(key).await,
-            RecoveryMode::ShowKey => self.show_key.handle_key_event(key).await,
+            RecoveryMode::EnterKey => match key.code {
+                KeyCode::Enter => {
+                    let key_str = self.enter_key.get_input().to_owned();
+                    if key_str.is_empty() {
+                        KeyResult::Consumed
+                    } else {
+                        self.enter_key.clear();
+                        KeyResult::DoAction(Action::ProvideRecoveryKey(key_str))
+                    }
+                }
+                _ => self.enter_key.handle_text_key(key),
+            },
+            RecoveryMode::ShowKey => match key.code {
+                KeyCode::Enter => KeyResult::DoAction(Action::ConfirmRecoveryKeySaved),
+                _ => KeyResult::NotConsumed,
+            },
         }
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    pub fn draw(&self, frame: &mut Frame, area: Rect) {
         match self.mode {
             RecoveryMode::EnterKey => self.enter_key.draw(frame, area),
             RecoveryMode::ShowKey => self.show_key.draw(frame, area),

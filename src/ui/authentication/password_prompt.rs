@@ -1,29 +1,20 @@
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
 use tui::{
-    crossterm::event::{KeyCode, KeyEvent},
-    prelude::*,
+    Frame,
+    crossterm::event::KeyEvent,
+    layout::{Constraint, Layout, Rect},
 };
 
-use crate::{
-    events::{Event, InternalEvent, LoginMode, Mode},
-    ui::{component::Component, user_input::UserInputWidget},
-};
+use crate::ui::{action::KeyResult, user_input::UserInputWidget};
 
 pub struct PasswordPromptWidget {
     input: UserInputWidget,
-    event_tx: Sender<Event>,
-
     password: Option<String>,
 }
 
 impl PasswordPromptWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
-        let input = UserInputWidget::new(Some("Password"));
-
+    pub fn new() -> Self {
         Self {
-            input,
-            event_tx,
+            input: UserInputWidget::new(Some("Password")),
             password: None,
         }
     }
@@ -35,48 +26,29 @@ impl PasswordPromptWidget {
     pub fn password(&self) -> Option<String> {
         self.password.clone()
     }
-}
 
-impl Component for PasswordPromptWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        if !self.input.is_focused() {
-            return Ok(());
-        }
-
-        match key.code {
-            KeyCode::Esc => {
-                self.input.set_focused(false);
-                self.input.clear();
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
-                        LoginMode::SelectLoginChoice,
-                    ))))
-                    .await?;
-            }
-            KeyCode::Enter => {
-                let password = self.input.get_input();
-                if password.is_empty() {
-                    return Ok(());
-                }
-                self.password = Some(password.to_owned());
-
-                self.input.clear();
-
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
-                        LoginMode::Completed,
-                    ))))
-                    .await?;
-            }
-            _ => {
-                self.input.handle_key_event(key).await?;
-            }
-        }
-
-        Ok(())
+    pub fn has_input(&self) -> bool {
+        !self.input.get_input().is_empty()
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    pub fn confirm(&mut self) {
+        let value = self.input.get_input().to_owned();
+        if !value.is_empty() {
+            self.password = Some(value);
+        }
+        self.input.clear();
+    }
+
+    pub fn clear(&mut self) {
+        self.password = None;
+        self.input.clear();
+    }
+
+    pub fn handle_text_key(&mut self, key: KeyEvent) -> KeyResult {
+        self.input.handle_key(key)
+    }
+
+    pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let [_, top] =
             Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(area);
 

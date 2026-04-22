@@ -1,7 +1,10 @@
+mod action;
 mod authentication;
-mod component;
+pub(crate) mod context;
+pub(crate) mod context_manager;
+mod context_registry;
+pub mod contexts;
 mod header;
-mod input;
 mod messages;
 mod navigation;
 mod recovery;
@@ -9,43 +12,33 @@ mod spinner;
 mod status_line;
 mod user_input;
 
-use tokio::sync::mpsc::Sender;
+pub use action::{Action, ContextKey, FocusOpts, KeyResult};
+pub use context_manager::{ContextManager, StackEntry};
+pub use context_registry::ContextRegistry;
+pub use header::HeaderWidget;
+pub use status_line::{Status, StatusLineWidget};
 
-pub use crate::ui::{component::Component, status_line::Status};
-use crate::{
-    config::CoreConfig,
-    events::{Event, Mode},
-    ui::{
-        authentication::AuthenticationWidget, header::HeaderWidget, input::InputWidget,
-        messages::MessagesWidget, navigation::NavigationUI, recovery::RecoveryWidget,
-        status_line::StatusLineWidget,
-    },
-};
+use crate::config::CoreConfig;
 
 pub struct Ui {
+    pub registry: ContextRegistry,
+    pub ctx_mgr: ContextManager,
+    /// Always-visible title bar (not part of the focus system).
     pub header: HeaderWidget,
+    /// Always-visible status bar (not part of the focus system).
     pub status_line: StatusLineWidget,
-    pub messages: MessagesWidget,
-    pub input: InputWidget,
-    pub authentication: AuthenticationWidget,
-    pub navigation: NavigationUI,
-    pub recovery: RecoveryWidget,
 }
 
 impl Ui {
-    pub fn new(config: &CoreConfig, event_tx: Sender<Event>, mode: Mode) -> Self {
+    pub fn new(config: &CoreConfig) -> Self {
         Self {
-            // TODO: Replace motd with something better
-            header: HeaderWidget::new(config, "matrix-tui".to_string(), mode),
+            registry: ContextRegistry::new(),
+            ctx_mgr: ContextManager::new(),
+            header: HeaderWidget::new(config, "matrix-tui".to_string()),
             status_line: StatusLineWidget::new(
                 Some(Status::Info("Launching...".to_string())),
                 None,
             ),
-            messages: MessagesWidget::new(event_tx.clone()),
-            input: InputWidget::new(event_tx.clone()),
-            authentication: AuthenticationWidget::new(event_tx.clone()),
-            navigation: NavigationUI::new(event_tx.clone()),
-            recovery: RecoveryWidget::new(event_tx),
         }
     }
 }

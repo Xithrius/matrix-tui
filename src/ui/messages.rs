@@ -3,62 +3,39 @@ use std::{
     sync::LazyLock,
 };
 
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
 use tui::{
-    crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    Frame,
+    layout::Rect,
     prelude::*,
     widgets::{Block, BorderType, Borders, Cell, Row, Table, TableState},
 };
 
-use crate::{
-    events::{Event, InternalEvent, Mode},
-    matrix::models::MatrixMessage,
-    ui::component::Component,
-};
+use crate::matrix::models::MatrixMessage;
 
 static DATETIME_STYLE: LazyLock<Style> =
     LazyLock::new(|| Style::default().fg(Color::Rgb(173, 173, 184)));
 
 pub struct MessagesWidget {
-    event_tx: Sender<Event>,
     table_state: TableState,
-
     messages: BTreeMap<String, VecDeque<MatrixMessage>>,
     selected_room_id: Option<String>,
-    selected_room_messages: Option<VecDeque<MatrixMessage>>,
+    selected_room_messages: VecDeque<MatrixMessage>,
 }
 
 impl MessagesWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
+    pub fn new() -> Self {
         Self {
-            event_tx,
             table_state: TableState::default(),
             messages: BTreeMap::default(),
             selected_room_id: None,
-            selected_room_messages: None,
+            selected_room_messages: VecDeque::new(),
         }
     }
 
-    #[allow(dead_code)]
-    pub fn get_selected_room_id(&self) -> Option<String> {
-        self.selected_room_id.clone()
-    }
-
-    pub fn set_selected_room_id(&mut self, room_id: String) {
-        self.selected_room_id = Some(room_id);
-
-        let selected_room_messages = if let Some(selected_room_id) = self.selected_room_id.as_ref()
-        {
-            self.messages
-                .get(selected_room_id)
-                .cloned()
-                .unwrap_or_default()
-        } else {
-            VecDeque::new()
-        };
-
-        self.selected_room_messages = Some(selected_room_messages);
+    pub fn set_active_room(&mut self, room_id: &String) {
+        self.selected_room_id = Some(room_id.clone());
+        self.selected_room_messages = self.messages.get(room_id).cloned().unwrap_or_default();
+        self.table_state.select(None);
     }
 
     pub fn push_message(&mut self, room_id: &String, message: MatrixMessage) {
@@ -69,11 +46,10 @@ impl MessagesWidget {
 
         if self
             .selected_room_id
-            .as_ref()
-            .is_some_and(|selected_room_id| selected_room_id == room_id)
-            && let Some(selected_room_messages) = self.selected_room_messages.as_mut()
+            .as_deref()
+            .is_some_and(|id| id == room_id)
         {
-            selected_room_messages.push_back(message);
+            self.selected_room_messages.push_back(message);
         }
     }
 
@@ -81,74 +57,27 @@ impl MessagesWidget {
         self.messages.clear();
         self.table_state = TableState::default();
         self.selected_room_id = None;
-        self.selected_room_messages = None;
-    }
-}
-
-impl Component for MessagesWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        let index = self.table_state.selected();
-
-        let contains_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-        if contains_ctrl && key.code == KeyCode::Char('r') {
-            self.event_tx
-                .send(Event::Internal(InternalEvent::SwitchMode(
-                    Mode::RoomNavigation,
-                )))
-                .await?;
-
-            return Ok(());
-        }
-
-        match key.code {
-            KeyCode::Esc | KeyCode::Char('q') => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::Quit))
-                    .await?;
-            }
-            KeyCode::Char('l') => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::Logout))
-                    .await?;
-            }
-            KeyCode::Up => {
-                let index = index.unwrap_or(0).saturating_sub(1);
-                self.table_state.select(Some(index));
-            }
-            KeyCode::Down => {
-                if index.is_none() {
-                    self.table_state.select(Some(0));
-                    return Ok(());
-                }
-
-                let index = index.unwrap_or(0).saturating_add(1);
-                self.table_state.select(Some(index));
-            }
-            KeyCode::Char('i') => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
-                    .await?;
-            }
-            _ => {}
-        }
-
-        Ok(())
+        self.selected_room_messages.clear();
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let selected_room_messages = self.selected_room_messages.clone().unwrap_or_default();
+    /// Returns the list index of the currently highlighted message, if any.
+    pub const fn highlighted_index(&self) -> Option<usize> {
+        self.table_state.selected()
+    }
 
-        let title = self.selected_room_id.clone().map_or_else(
+    pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
+        let title = self.selected_room_id.as_deref().map_or_else(
             || "Messages".to_string(),
             |selected_room| {
                 format!(
                     "Messages in {selected_room}: {}",
-                    selected_room_messages.len()
+                    self.selected_room_messages.len()
                 )
             },
         );
 
-        let rows: Vec<Row> = selected_room_messages
+        let rows: Vec<Row> = self
+            .selected_room_messages
             .iter()
             .map(|message| {
                 let cells = vec![

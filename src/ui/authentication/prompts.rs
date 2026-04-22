@@ -1,13 +1,15 @@
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
-use tui::{crossterm::event::KeyEvent, prelude::*};
+use tui::{
+    Frame,
+    crossterm::event::{KeyCode, KeyEvent},
+    layout::Rect,
+};
 
 use crate::{
-    events::{Event, LoginMode},
+    events::LoginMode,
     matrix::login::{LoginChoice, LoginCredentials},
     ui::{
+        action::{Action, KeyResult},
         authentication::{LoginChoicePromptWidget, PasswordPromptWidget, UsernamePromptWidget},
-        component::Component,
     },
 };
 
@@ -18,47 +20,37 @@ struct AuthenticationUI {
 }
 
 impl AuthenticationUI {
-    fn new(event_tx: Sender<Event>) -> Self {
-        let login_choice_prompt = LoginChoicePromptWidget::new(event_tx.clone());
-        let username_prompt = UsernamePromptWidget::new(event_tx.clone());
-        let password_prompt = PasswordPromptWidget::new(event_tx);
-
+    fn new() -> Self {
         Self {
-            login_choice: login_choice_prompt,
-            username: username_prompt,
-            password: password_prompt,
+            login_choice: LoginChoicePromptWidget::new(),
+            username: UsernamePromptWidget::new(),
+            password: PasswordPromptWidget::new(),
         }
     }
 }
 
 pub struct AuthenticationWidget {
     ui: AuthenticationUI,
-
     login_mode: LoginMode,
 }
 
 impl AuthenticationWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
-        let ui = AuthenticationUI::new(event_tx);
-
+    pub fn new() -> Self {
         Self {
-            ui,
+            ui: AuthenticationUI::new(),
             login_mode: LoginMode::default(),
         }
     }
 
-    /// Unfocus the previous mode's user input widget, if the last mode was of an input widget.
-    /// Then, focus the new mode's user input widget, if said mode is a user input widget,
-    /// and override the previous mode.
-    ///
-    /// TODO: Word better later, because it's 2am now.
-    pub const fn set_login_mode(&mut self, mode: LoginMode) {
+    /// Transition to a new sub-mode, updating focused state on sub-widgets.
+    const fn set_login_mode(&mut self, mode: LoginMode) {
+        // Blur the outgoing widget
         match self.login_mode {
             LoginMode::UsernamePrompt => self.ui.username.set_focused(false),
             LoginMode::PasswordPrompt => self.ui.password.set_focused(false),
             LoginMode::SelectLoginChoice | LoginMode::Completed => {}
         }
-
+        // Focus the incoming widget
         match mode {
             LoginMode::UsernamePrompt => self.ui.username.set_focused(true),
             LoginMode::PasswordPrompt => self.ui.password.set_focused(true),
@@ -66,6 +58,11 @@ impl AuthenticationWidget {
         }
 
         self.login_mode = mode;
+    }
+
+    /// Called when the context gains focus (e.g. app start or after logout).
+    pub const fn on_focus(&mut self) {
+        self.set_login_mode(LoginMode::SelectLoginChoice);
     }
 
     pub fn set_login_choices(&mut self, login_choices: Vec<LoginChoice>) {
@@ -76,42 +73,76 @@ impl AuthenticationWidget {
         self.ui.login_choice.selected_login_choice()
     }
 
-    pub fn get_login_credentials(&self) -> Option<LoginCredentials> {
+    /// Take the completed credentials out (clears stored state).
+    pub fn take_credentials(&mut self) -> Option<LoginCredentials> {
         let login_choice = self.selected_login_choice()?;
 
-        let LoginChoice::Password = login_choice else {
-            return None;
+        let credentials = match login_choice {
+            LoginChoice::Password => {
+                let username = self.ui.username.username()?;
+                let password = self.ui.password.password()?;
+                Some(LoginCredentials::Password { username, password })
+            }
+            LoginChoice::Sso | LoginChoice::SsoIdp(_) => None,
         };
 
-        let password = self.ui.password.password()?;
-        let username = self.ui.username.username()?;
+        // Reset for the next login attempt
+        self.ui.username.clear();
+        self.ui.password.clear();
+        self.set_login_mode(LoginMode::SelectLoginChoice);
 
-        let credentials = LoginCredentials::Password { username, password };
-
-        Some(credentials)
+        credentials
     }
-}
 
-impl Component for AuthenticationWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+    /// Synchronous key handler. Manages login sub-mode transitions internally
+    /// and returns `DoAction(SubmitLogin)` when credentials are ready.
+    pub fn handle_key(&mut self, key: KeyEvent) -> KeyResult {
         match self.login_mode {
-            LoginMode::SelectLoginChoice => {
-                self.ui.login_choice.handle_key_event(key).await?;
-            }
-            LoginMode::UsernamePrompt => {
-                self.ui.username.handle_key_event(key).await?;
-            }
-            LoginMode::PasswordPrompt => {
-                self.ui.password.handle_key_event(key).await?;
-            }
-            // TODO: Handle login cancelling?
-            LoginMode::Completed => {}
+            LoginMode::SelectLoginChoice => match key.code {
+                KeyCode::Esc => KeyResult::DoAction(Action::Quit),
+                KeyCode::Enter => {
+                    self.ui.login_choice.confirm_selection();
+                    self.set_login_mode(LoginMode::UsernamePrompt);
+                    KeyResult::Consumed
+                }
+                _ => self.ui.login_choice.handle_nav_key(key),
+            },
+            LoginMode::UsernamePrompt => match key.code {
+                KeyCode::Esc => {
+                    self.set_login_mode(LoginMode::SelectLoginChoice);
+                    KeyResult::Consumed
+                }
+                KeyCode::Enter => {
+                    if self.ui.username.has_input() {
+                        self.ui.username.confirm();
+                        self.set_login_mode(LoginMode::PasswordPrompt);
+                    }
+                    KeyResult::Consumed
+                }
+                _ => self.ui.username.handle_text_key(key),
+            },
+            LoginMode::PasswordPrompt => match key.code {
+                KeyCode::Esc => {
+                    self.ui.username.clear();
+                    self.set_login_mode(LoginMode::SelectLoginChoice);
+                    KeyResult::Consumed
+                }
+                KeyCode::Enter => {
+                    if self.ui.password.has_input() {
+                        self.ui.password.confirm();
+                        self.set_login_mode(LoginMode::Completed);
+                        KeyResult::DoAction(Action::SubmitLogin)
+                    } else {
+                        KeyResult::Consumed
+                    }
+                }
+                _ => self.ui.password.handle_text_key(key),
+            },
+            LoginMode::Completed => KeyResult::Consumed,
         }
-
-        Ok(())
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         match self.login_mode {
             LoginMode::SelectLoginChoice => {
                 self.ui.login_choice.draw(frame, area);

@@ -1,6 +1,6 @@
 use tui::crossterm::event::Event as CrosstermEvent;
 
-use crate::{events::Mode, matrix::event::MatrixEvent};
+use crate::matrix::event::MatrixEvent;
 
 #[derive(Clone, Debug)]
 pub enum Event {
@@ -12,17 +12,6 @@ pub enum Event {
     Tick,
     /// Crossterm events emitted by the terminal.
     Crossterm(CrosstermEvent),
-    /// Internal application events.
-    Internal(InternalEvent),
     /// Matrix-SDK events
     Matrix(MatrixEvent),
-}
-
-#[derive(Clone, Debug)]
-pub enum InternalEvent {
-    SwitchMode(Mode),
-    SendMessage(String),
-    SwitchRoom(String),
-    Quit,
-    Logout,
 }

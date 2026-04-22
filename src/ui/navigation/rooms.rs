@@ -1,21 +1,15 @@
 use std::collections::BTreeMap;
 
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
 use tui::{
-    crossterm::event::{KeyCode, KeyEvent},
+    Frame,
+    layout::Rect,
     prelude::*,
     widgets::{Block, BorderType, Borders, List, ListItem, ListState},
 };
 
-use crate::{
-    events::{Event, InternalEvent, Mode},
-    matrix::models::MatrixRoom,
-    ui::component::Component,
-};
+use crate::matrix::models::MatrixRoom;
 
 pub struct RoomNavigationWidget {
-    event_tx: Sender<Event>,
     // TODO: BTreeMap is probably not needed here, use a vector
     rooms: BTreeMap<String, MatrixRoom>,
 
@@ -24,19 +18,16 @@ pub struct RoomNavigationWidget {
 }
 
 impl RoomNavigationWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
+    pub fn new() -> Self {
         Self {
-            event_tx,
             rooms: BTreeMap::default(),
-
             list_state: ListState::default(),
             selected_room_id: None,
         }
     }
 
     pub fn get_selected_room_id(&self) -> Option<String> {
-        let selected = self.list_state.selected()?;
-        self.rooms.keys().nth(selected).cloned()
+        self.selected_room_id.clone()
     }
 
     pub fn set_selected_room_id(&mut self, room_id: &String) {
@@ -45,13 +36,13 @@ impl RoomNavigationWidget {
         self.selected_room_id = Some(room_id.clone());
     }
 
-    pub fn push_room(&mut self, room_id: String, room: MatrixRoom) {
-        self.rooms.insert(room_id, room);
+    pub fn push_room(&mut self, room: MatrixRoom) {
+        self.rooms.insert(room.id.clone(), room);
     }
 
-    #[allow(dead_code)]
-    pub fn remove_room(&mut self, room_id: &String) {
-        self.rooms.remove(room_id);
+    pub fn highlighted_room_id(&self) -> Option<String> {
+        let selected = self.list_state.selected()?;
+        self.rooms.keys().nth(selected).cloned()
     }
 
     pub fn clear(&mut self) {
@@ -59,56 +50,31 @@ impl RoomNavigationWidget {
         self.list_state = ListState::default();
         self.selected_room_id = None;
     }
-}
 
-impl Component for RoomNavigationWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        let index = self.list_state.selected();
-
-        match key.code {
-            KeyCode::Esc => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Messages)))
-                    .await?;
-            }
-            KeyCode::Char('i') => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Input)))
-                    .await?;
-            }
-            KeyCode::Up => {
-                let index = index.unwrap_or(0).saturating_sub(1);
-                self.list_state.select(Some(index));
-            }
-            KeyCode::Down => {
-                if index.is_none() {
-                    self.list_state.select(Some(0));
-                    return Ok(());
-                }
-
-                let index = index.unwrap_or(0).saturating_add(1);
-                self.list_state.select(Some(index));
-            }
-            KeyCode::Enter => {
-                let Some(selected) = self.list_state.selected() else {
-                    return Ok(());
-                };
-
-                let Some(room_id) = self.rooms.keys().nth(selected) else {
-                    return Ok(());
-                };
-
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchRoom(room_id.clone())))
-                    .await?;
-            }
-            _ => {}
-        }
-
-        Ok(())
+    pub fn select_prev(&mut self) {
+        let idx = self.list_state.selected().unwrap_or(0).saturating_sub(1);
+        self.list_state.select(Some(idx));
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    pub fn select_next(&mut self) {
+        let len = self.rooms.len();
+        if len == 0 {
+            return;
+        }
+        if self.list_state.selected().is_none() {
+            self.list_state.select(Some(0));
+            return;
+        }
+        let idx = self
+            .list_state
+            .selected()
+            .unwrap_or(0)
+            .saturating_add(1)
+            .min(len - 1);
+        self.list_state.select(Some(idx));
+    }
+
+    pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let entries: Vec<ListItem> = self
             .rooms
             .values()

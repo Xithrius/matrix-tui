@@ -1,32 +1,22 @@
-use std::string::ToString;
-
-use color_eyre::Result;
-use tokio::sync::mpsc::Sender;
-use tracing::debug;
 use tui::{
+    Frame,
     crossterm::event::{KeyCode, KeyEvent},
+    layout::Rect,
     prelude::*,
     widgets::{Block, BorderType, List, ListState},
 };
 
-use crate::{
-    events::{Event, InternalEvent, LoginMode, Mode},
-    matrix::login::LoginChoice,
-    ui::component::Component,
-};
+use crate::{matrix::login::LoginChoice, ui::action::KeyResult};
 
 pub struct LoginChoicePromptWidget {
-    event_tx: Sender<Event>,
     login_choices: Vec<LoginChoice>,
     selected_login_choice: Option<LoginChoice>,
-
     list_state: ListState,
 }
 
 impl LoginChoicePromptWidget {
-    pub fn new(event_tx: Sender<Event>) -> Self {
+    pub fn new() -> Self {
         Self {
-            event_tx,
             login_choices: Vec::default(),
             selected_login_choice: None,
             list_state: ListState::default(),
@@ -41,47 +31,40 @@ impl LoginChoicePromptWidget {
     pub fn selected_login_choice(&self) -> Option<LoginChoice> {
         self.selected_login_choice.clone()
     }
-}
 
-impl Component for LoginChoicePromptWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        let index = self.list_state.selected();
-
-        match key.code {
-            KeyCode::Esc => {
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::Quit))
-                    .await?;
-            }
-            KeyCode::Up => {
-                let index = index.unwrap_or(0).saturating_sub(1);
-                self.list_state.select(Some(index));
-            }
-            KeyCode::Down => {
-                if index.is_none() {
-                    self.list_state.select(Some(0));
-                    return Ok(());
-                }
-
-                let index = index.unwrap_or(0).saturating_add(1);
-                self.list_state.select(Some(index));
-            }
-            KeyCode::Enter => {
-                self.selected_login_choice = self.login_choices.get(index.unwrap_or(0)).cloned();
-                debug!("Selected login choice: {:?}", self.selected_login_choice);
-                self.event_tx
-                    .send(Event::Internal(InternalEvent::SwitchMode(Mode::Login(
-                        LoginMode::UsernamePrompt,
-                    ))))
-                    .await?;
-            }
-            _ => {}
-        }
-
-        Ok(())
+    /// Confirm the currently highlighted choice and store it.
+    pub fn confirm_selection(&mut self) {
+        let index = self.list_state.selected().unwrap_or(0);
+        self.selected_login_choice = self.login_choices.get(index).cloned();
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    /// Handle list navigation keys. Returns `Consumed` or `NotConsumed`.
+    pub fn handle_nav_key(&mut self, key: KeyEvent) -> KeyResult {
+        let len = self.login_choices.len();
+        match key.code {
+            KeyCode::Up | KeyCode::Char('k') => {
+                let idx = self.list_state.selected().unwrap_or(0).saturating_sub(1);
+                self.list_state.select(Some(idx));
+                KeyResult::Consumed
+            }
+            KeyCode::Down | KeyCode::Char('j') => {
+                if len == 0 {
+                    return KeyResult::Consumed;
+                }
+                let idx = self
+                    .list_state
+                    .selected()
+                    .unwrap_or(0)
+                    .saturating_add(1)
+                    .min(len - 1);
+                self.list_state.select(Some(idx));
+                KeyResult::Consumed
+            }
+            _ => KeyResult::NotConsumed,
+        }
+    }
+
+    pub fn draw(&mut self, frame: &mut Frame, area: Rect) {
         let login_choices = self
             .login_choices
             .iter()

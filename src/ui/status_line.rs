@@ -11,8 +11,6 @@ use tui::{
     widgets::Paragraph,
 };
 
-use crate::ui::component::Component;
-
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Status {
     Error(String),
@@ -72,8 +70,8 @@ impl StatusLineWidget {
     }
 }
 
-impl Component for StatusLineWidget {
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+impl StatusLineWidget {
+    pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let Some(status) = &self.status else {
             return;
         };
