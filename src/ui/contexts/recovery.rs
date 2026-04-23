@@ -5,14 +5,19 @@ use tui::{
     widgets::{Block, BorderType, Paragraph},
 };
 
-use crate::{
-    events::RecoveryMode,
-    ui::{
-        action::{Action, ContextKey, FocusOpts, KeyEventResult},
-        context::{Context, Keybinding, ViewName},
-        widgets::user_input::UserInputWidget,
-    },
+use crate::ui::{
+    action::{Action, ContextKey, FocusOpts, KeyEventResult},
+    context::{Context, Keybinding, ViewName},
+    widgets::user_input::UserInputWidget,
 };
+
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum RecoveryMode {
+    /// Prompt the user to enter their existing recovery key.
+    EnterKey,
+    /// Display a newly generated recovery key the user must record and confirm.
+    ShowKey,
+}
 
 pub struct RecoveryContext {
     key_input: UserInputWidget,
