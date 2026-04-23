@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use tokio::sync::mpsc::{Sender, channel};
-use tracing::{debug, error};
+use tracing::debug;
 use tui::{
     DefaultTerminal, Frame,
     crossterm::event::{Event as CrosstermEvent, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
@@ -10,16 +10,12 @@ use tui::{
 use crate::{
     config::CoreConfig,
     events::{Event, EventHandler},
-    matrix::{
-        event::{MatrixAction, MatrixEvent},
-        handler::MatrixHandler,
-    },
+    matrix::{event::MatrixAction, handler::MatrixHandler},
     ui::{
-        action::{Action, ContextKey, FocusOpts, KeyResult},
+        action::{Action, KeyResult},
         context::Context,
-        context_manager::{StackEntry, cycle_static_backward, cycle_static_forward},
+        context_manager::StackEntry,
         ui::Ui,
-        widgets::status_line::Status,
     },
 };
 
@@ -32,10 +28,10 @@ const GLOBAL_KEYBINDINGS: &[(KeyCode, KeyModifiers, Action)] = &[
 ];
 
 pub struct App {
-    running: bool,
-    events: EventHandler,
-    matrix_tx: Sender<MatrixAction>,
-    ui: Ui,
+    pub(crate) running: bool,
+    pub(crate) events: EventHandler,
+    pub(crate) matrix_tx: Sender<MatrixAction>,
+    pub(crate) ui: Ui,
 }
 
 impl App {
@@ -62,7 +58,7 @@ impl App {
         Ok(())
     }
 
-    // ─── Event loop ──────────────────────────────────────────────────────────
+    // --- Event loop ---
 
     pub async fn handle_events(&mut self) -> Result<()> {
         let Some(event) = self.events.next().await else {
@@ -86,7 +82,7 @@ impl App {
         self.ui.status_line.tick();
     }
 
-    // ─── Key dispatch ─────────────────────────────────────────────────────────
+    // --- Key dispatch ---
 
     async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         debug!("Key event: {:?}", key);
@@ -108,7 +104,7 @@ impl App {
         Ok(())
     }
 
-    /// Three-phase dispatch: keybinding table → unbound handler → global bindings.
+    /// Three-phase dispatch: keybinding table -> unbound handler -> global bindings.
     fn dispatch(key: KeyEvent, ctx: &mut dyn Context) -> KeyResult {
         // Phase 1: declarative keybinding table
         for binding in ctx.keybindings() {
@@ -130,288 +126,7 @@ impl App {
         KeyResult::NotConsumed
     }
 
-    // ─── Action execution ────────────────────────────────────────────────────
-
-    async fn execute_action(&mut self, action: Action) -> Result<()> {
-        match action {
-            // --- Application ---
-            Action::Quit => {
-                self.running = false;
-            }
-            Action::Logout => {
-                self.matrix_tx.send(MatrixAction::Logout).await?;
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Logging out...".to_string()), None);
-                self.ui.registry.sidebar.clear();
-                self.ui.registry.message_list.clear();
-                self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
-            }
-
-            // --- Navigation ---
-            Action::PopContext => {
-                self.ui.ctx_mgr.pop(&mut self.ui.registry);
-            }
-            Action::PushContext(key, opts) => {
-                self.ui.ctx_mgr.push(key, opts, &mut self.ui.registry);
-            }
-
-            // --- Panel focus cycling ---
-            Action::CycleFocusForward => {
-                if let Some(current) = self.ui.ctx_mgr.current_key() {
-                    let next = cycle_static_forward(current);
-                    self.ui.ctx_mgr.activate_static(next, &mut self.ui.registry);
-                }
-            }
-            Action::CycleFocusBackward => {
-                if let Some(current) = self.ui.ctx_mgr.current_key() {
-                    let prev = cycle_static_backward(current);
-                    self.ui.ctx_mgr.activate_static(prev, &mut self.ui.registry);
-                }
-            }
-            Action::FocusSidebar => {
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::Sidebar, &mut self.ui.registry);
-            }
-            Action::FocusMessageList => {
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::MessageList, &mut self.ui.registry);
-            }
-            Action::FocusMessageInput => {
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
-            }
-
-            // --- Messaging ---
-            Action::SendMessage => {
-                let text = self.ui.registry.message_input.take_buffer();
-                if !text.trim().is_empty() {
-                    let room_id = self.ui.registry.sidebar.get_selected_room_id();
-                    if let Some(room_id) = room_id {
-                        self.matrix_tx
-                            .send(MatrixAction::SendMessage {
-                                room_id,
-                                message_body: text,
-                            })
-                            .await?;
-                    } else {
-                        error!("SendMessage: no room selected");
-                    }
-                }
-            }
-            Action::SelectMessage(idx) => {
-                self.ui.registry.message_actions.selected_message = Some(idx);
-                self.ui.ctx_mgr.push(
-                    ContextKey::MessageActions,
-                    FocusOpts {
-                        selected_message: Some(idx),
-                        ..Default::default()
-                    },
-                    &mut self.ui.registry,
-                );
-            }
-            Action::ReplyToMessage(idx) => {
-                self.ui.registry.message_input.reply_to = Some(idx);
-                self.ui.ctx_mgr.pop(&mut self.ui.registry);
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
-            }
-            Action::EditMessage(idx) => {
-                // Note: editing by index only; full edit support requires message IDs
-                self.ui.registry.message_input.editing = Some(idx);
-                self.ui.ctx_mgr.pop(&mut self.ui.registry);
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
-            }
-            Action::DeleteMessage(idx) => {
-                self.ui.ctx_mgr.push(
-                    ContextKey::ConfirmDelete,
-                    FocusOpts {
-                        selected_message: Some(idx),
-                        ..Default::default()
-                    },
-                    &mut self.ui.registry,
-                );
-            }
-            Action::ConfirmDeleteMessage(_idx) => {
-                // Full delete support requires message IDs; pop overlays for now
-                self.ui.ctx_mgr.pop(&mut self.ui.registry); // close ConfirmDelete
-                self.ui.ctx_mgr.pop(&mut self.ui.registry); // close MessageActions
-            }
-            Action::ScrollMessagesUp => {
-                todo!()
-            }
-            Action::ScrollMessagesDown => {
-                todo!()
-            }
-
-            // --- Rooms ---
-            Action::SelectRoom(id) => {
-                self.ui.registry.sidebar.select_room(&id);
-                self.ui.registry.message_list.set_active_room(&id);
-                self.ui
-                    .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
-                // Request messages for the newly selected room
-                self.matrix_tx
-                    .send(MatrixAction::GetRoomMessages(id))
-                    .await?;
-            }
-            Action::OpenCreateRoom => {
-                self.ui.ctx_mgr.push(
-                    ContextKey::CreateRoom,
-                    FocusOpts::default(),
-                    &mut self.ui.registry,
-                );
-            }
-            Action::ConfirmCreateRoom => {
-                let name = self.ui.registry.create_room.take_name_buffer();
-                if !name.trim().is_empty() {
-                    // Placeholder: room creation via matrix SDK not yet implemented
-                    debug!("Create room: {name}");
-                }
-                self.ui.ctx_mgr.pop(&mut self.ui.registry);
-            }
-            Action::ScrollRoomsUp => {
-                self.ui.registry.sidebar.scroll_up();
-            }
-            Action::ScrollRoomsDown => {
-                self.ui.registry.sidebar.scroll_down();
-            }
-
-            // --- Auth ---
-            Action::SubmitLogin => {
-                let choice = self.ui.registry.login.selected_login_choice();
-                let credentials = self.ui.registry.login.take_credentials();
-                if let Some(choice) = choice {
-                    self.matrix_tx
-                        .send(MatrixAction::SelectLogin {
-                            choice,
-                            credentials,
-                        })
-                        .await?;
-                }
-            }
-
-            // --- Recovery ---
-            Action::ProvideRecoveryKey(key) => {
-                self.matrix_tx
-                    .send(MatrixAction::ProvideRecoveryKey(key))
-                    .await?;
-            }
-            Action::ConfirmRecoveryKeySaved => {
-                self.matrix_tx
-                    .send(MatrixAction::ConfirmRecoveryKeySaved)
-                    .await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    // ─── Matrix notification handling ────────────────────────────────────────
-
-    async fn handle_matrix_event(&mut self, event: MatrixEvent) -> Result<()> {
-        match event {
-            MatrixEvent::RestoringSession => {
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Restoring session...".to_string()), None);
-                self.ui.header.set_loading(true);
-                self.ui.header.set_mode("Restoring session".to_string());
-            }
-            MatrixEvent::SuccessfulSessionRestore => {
-                self.ui.status_line.set_status(
-                    Status::Info("Session restored, setting up encryption...".to_string()),
-                    None,
-                );
-            }
-            MatrixEvent::LoginChoices(choices) => {
-                self.ui.registry.login.set_login_choices(choices);
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Select login option".to_string()), None);
-            }
-            MatrixEvent::LoggingIn => {
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Logging in...".to_string()), None);
-            }
-            MatrixEvent::SuccessfulLogin => {
-                self.ui.status_line.set_status(
-                    Status::Info("Login successful, setting up encryption...".to_string()),
-                    None,
-                );
-            }
-            MatrixEvent::LoginFailed => {
-                self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
-                self.ui
-                    .status_line
-                    .set_status(Status::Error("Login failed".to_string()), Some(5));
-            }
-            MatrixEvent::NeedsRecoveryKey => {
-                self.ui.ctx_mgr.enter_recovery(&mut self.ui.registry);
-                self.ui.status_line.set_status(
-                    Status::Info("Enter your recovery key to restore encryption".to_string()),
-                    None,
-                );
-            }
-            MatrixEvent::ShowNewRecoveryKey(key) => {
-                self.ui.registry.recovery.show_new_key(key);
-                // ctx_mgr is already in Recovery fullscreen; just update the widget.
-            }
-            MatrixEvent::EncryptionSetupComplete => {
-                self.ui.header.set_loading(false);
-                self.ui.ctx_mgr.enter_session(&mut self.ui.registry);
-                self.ui
-                    .status_line
-                    .set_status(Status::Info("Encryption configured".to_string()), Some(5));
-            }
-            MatrixEvent::KnownRooms(rooms) => {
-                let first_room = rooms.first().map(|r| r.id.clone());
-
-                for room in rooms {
-                    let room_id = room.id.clone();
-                    self.ui.registry.sidebar.push_room(room);
-                    self.matrix_tx
-                        .send(MatrixAction::GetRoomMessages(room_id))
-                        .await?;
-                }
-
-                if let Some(id) = first_room {
-                    self.ui.registry.sidebar.select_room(&id);
-                    self.ui.registry.message_list.set_active_room(&id);
-                }
-            }
-            MatrixEvent::RoomMessages {
-                room_id,
-                mut messages,
-            } => {
-                messages.sort_by_key(|m| m.datetime);
-                for message in messages {
-                    self.ui
-                        .registry
-                        .message_list
-                        .push_message(&room_id, message);
-                }
-            }
-            MatrixEvent::Message { room_id, message } => {
-                self.ui
-                    .registry
-                    .message_list
-                    .push_message(&room_id, message);
-            }
-        }
-
-        Ok(())
-    }
-
-    // ─── Rendering ───────────────────────────────────────────────────────────
+    // --- Rendering ---
 
     fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
