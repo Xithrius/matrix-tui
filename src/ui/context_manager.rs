@@ -32,7 +32,7 @@ impl ContextManager {
 
     /// Start at the login screen (called at app start or after logout).
     pub fn enter_login(&mut self, registry: &mut ContextRegistry) {
-        if let Some(prev) = self.current_key() {
+        if let Some(prev) = self.focused_ctx_key() {
             registry.get_mut(prev).on_blur();
         }
         self.stack.clear();
@@ -44,7 +44,7 @@ impl ContextManager {
 
     /// Enter the main messaging session (called after successful login / encryption setup).
     pub fn enter_session(&mut self, registry: &mut ContextRegistry) {
-        if let Some(prev) = self.current_key() {
+        if let Some(prev) = self.focused_ctx_key() {
             registry.get_mut(prev).on_blur();
         }
         self.stack.clear();
@@ -57,11 +57,12 @@ impl ContextManager {
 
     /// Enter the recovery screen (fullscreen, replaces whatever is on the stack).
     pub fn enter_recovery(&mut self, registry: &mut ContextRegistry) {
-        if let Some(prev) = self.current_key() {
+        if let Some(prev) = self.focused_ctx_key() {
             registry.get_mut(prev).on_blur();
         }
         self.stack.clear();
-        self.stack.push(StackEntry::Fullscreen(ContextKey::Recovery));
+        self.stack
+            .push(StackEntry::Fullscreen(ContextKey::Recovery));
         registry
             .get_mut(ContextKey::Recovery)
             .on_focus(FocusOpts::default());
@@ -76,7 +77,7 @@ impl ContextManager {
             StackEntry::Overlay(key)
         };
 
-        if let Some(prev) = self.current_key() {
+        if let Some(prev) = self.focused_ctx_key() {
             registry.get_mut(prev).on_blur();
         }
 
@@ -90,16 +91,14 @@ impl ContextManager {
             return;
         }
 
-        if let Some(top_key) = self.current_key() {
+        if let Some(top_key) = self.focused_ctx_key() {
             registry.get_mut(top_key).on_blur();
         }
 
         self.stack.pop();
 
-        if let Some(next_key) = self.current_key() {
-            registry
-                .get_mut(next_key)
-                .on_focus(FocusOpts::default());
+        if let Some(next_key) = self.focused_ctx_key() {
+            registry.get_mut(next_key).on_focus(FocusOpts::default());
         }
     }
 
@@ -115,7 +114,7 @@ impl ContextManager {
     }
 
     /// The key of whichever context is currently focused.
-    pub fn current_key(&self) -> Option<ContextKey> {
+    pub fn focused_ctx_key(&self) -> Option<ContextKey> {
         match self.stack.last()? {
             StackEntry::Static => Some(self.focused_static),
             StackEntry::Overlay(key) | StackEntry::Fullscreen(key) => Some(*key),

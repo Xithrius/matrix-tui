@@ -39,13 +39,13 @@ impl App {
 
             // --- Panel focus cycling ---
             Action::CycleFocusForward => {
-                if let Some(current) = self.ui.ctx_mgr.current_key() {
+                if let Some(current) = self.ui.ctx_mgr.focused_ctx_key() {
                     let next = cycle_static_forward(current);
                     self.ui.ctx_mgr.activate_static(next, &mut self.ui.registry);
                 }
             }
             Action::CycleFocusBackward => {
-                if let Some(current) = self.ui.ctx_mgr.current_key() {
+                if let Some(current) = self.ui.ctx_mgr.focused_ctx_key() {
                     let prev = cycle_static_backward(current);
                     self.ui.ctx_mgr.activate_static(prev, &mut self.ui.registry);
                 }
