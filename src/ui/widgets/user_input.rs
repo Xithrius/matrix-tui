@@ -14,7 +14,7 @@ use tui::{
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::ui::action::KeyResult;
+use crate::ui::action::KeyEventResult;
 
 const LINE_BUFFER_CAPACITY: usize = 1024;
 
@@ -81,7 +81,7 @@ impl UserInputWidget {
         self.input.as_str()
     }
 
-    pub fn handle_key(&mut self, key: KeyEvent) -> KeyResult {
+    pub fn handle_key(&mut self, key: KeyEvent) -> KeyEventResult {
         match (
             key.code,
             key.modifiers.contains(KeyModifiers::CONTROL),
@@ -93,62 +93,62 @@ impl UserInputWidget {
                 } else {
                     self.input.move_forward(1);
                 }
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Left, false, _) | (KeyCode::Char('b'), true, false) => {
                 self.input.move_backward(1);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('a'), true, false) => {
                 self.input.move_home();
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('e'), true, false) => {
                 self.input.move_end();
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('f'), false, true) | (KeyCode::Right, true, false) => {
                 self.input.move_to_next_word(At::AfterEnd, Word::Emacs, 1);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('b'), false, true) | (KeyCode::Left, true, false) => {
                 self.input.move_to_prev_word(Word::Emacs, 1);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('t'), true, false) => {
                 self.input.transpose_chars(&mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('t'), false, true) => {
                 self.input.transpose_words(1, &mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('u'), true, false) => {
                 self.input.discard_line(&mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('k'), true, false) => {
                 self.input.kill_line(&mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('w'), true, false) => {
                 self.input
                     .delete_prev_word(Word::Emacs, 1, &mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Delete, _, _) | (KeyCode::Char('d'), true, false) => {
                 self.input.delete(1, &mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Backspace, _, _) => {
                 self.input.backspace(1, &mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
             (KeyCode::Char(c), false, false) => {
                 self.input.insert(c, 1, &mut self.input_listener);
-                KeyResult::Consumed
+                KeyEventResult::Consumed
             }
-            _ => KeyResult::NotConsumed,
+            _ => KeyEventResult::NotConsumed,
         }
     }
 

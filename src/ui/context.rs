@@ -4,7 +4,7 @@ use tui::{
     layout::Rect,
 };
 
-use crate::ui::action::{Action, ContextKey, FocusOpts, KeyResult};
+use crate::ui::action::{Action, ContextKey, FocusOpts, KeyEventResult};
 
 /// The named terminal region a context renders into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -72,8 +72,8 @@ pub trait Context {
 
     /// Called when no keybinding matched. Override for text-input contexts
     /// and any other generic key handling. Returns `NotConsumed` by default.
-    fn handle_unbound_key(&mut self, _key: KeyEvent) -> KeyResult {
-        KeyResult::NotConsumed
+    fn handle_unbound_key(&mut self, _key: KeyEvent) -> KeyEventResult {
+        KeyEventResult::NotConsumed
     }
 
     /// Called when this context gains focus.

@@ -8,7 +8,7 @@ use tui::{
 use crate::{
     events::RecoveryMode,
     ui::{
-        action::{Action, ContextKey, FocusOpts, KeyResult},
+        action::{Action, ContextKey, FocusOpts, KeyEventResult},
         context::{Context, Keybinding, ViewName},
         widgets::user_input::UserInputWidget,
     },
@@ -54,23 +54,23 @@ impl Context for RecoveryContext {
         vec![]
     }
 
-    fn handle_unbound_key(&mut self, key: KeyEvent) -> KeyResult {
+    fn handle_unbound_key(&mut self, key: KeyEvent) -> KeyEventResult {
         match self.mode {
             RecoveryMode::EnterKey => match key.code {
                 KeyCode::Enter => {
                     let key_str = self.key_input.get_input().to_owned();
                     if key_str.is_empty() {
-                        KeyResult::Consumed
+                        KeyEventResult::Consumed
                     } else {
                         self.key_input.clear();
-                        KeyResult::DoAction(Action::ProvideRecoveryKey(key_str))
+                        KeyEventResult::DoAction(Action::ProvideRecoveryKey(key_str))
                     }
                 }
                 _ => self.key_input.handle_key(key),
             },
             RecoveryMode::ShowKey => match key.code {
-                KeyCode::Enter => KeyResult::DoAction(Action::ConfirmRecoveryKeySaved),
-                _ => KeyResult::NotConsumed,
+                KeyCode::Enter => KeyEventResult::DoAction(Action::ConfirmRecoveryKeySaved),
+                _ => KeyEventResult::NotConsumed,
             },
         }
     }

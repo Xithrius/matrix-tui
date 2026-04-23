@@ -9,7 +9,7 @@ use tui::{
 
 use crate::matrix::models::MatrixRoom;
 
-pub struct RoomNavigationWidget {
+pub struct RoomsWidget {
     // TODO: BTreeMap is probably not needed here, use a vector
     rooms: BTreeMap<String, MatrixRoom>,
 
@@ -17,7 +17,7 @@ pub struct RoomNavigationWidget {
     selected_room_id: Option<String>,
 }
 
-impl RoomNavigationWidget {
+impl RoomsWidget {
     pub fn new() -> Self {
         Self {
             rooms: BTreeMap::default(),

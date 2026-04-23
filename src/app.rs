@@ -12,7 +12,7 @@ use crate::{
     events::{Event, EventHandler},
     matrix::{event::MatrixAction, handler::MatrixHandler},
     ui::{
-        action::{Action, KeyResult},
+        action::{Action, KeyEventResult},
         context::Context,
         context_manager::StackEntry,
         ui::Ui,
@@ -93,36 +93,36 @@ impl App {
             Self::dispatch_key_event(key, ctx)
         };
 
-        if let KeyResult::DoAction(action) = result {
+        if let KeyEventResult::DoAction(action) = result {
             self.execute_action(action).await?;
         }
 
         Ok(())
     }
 
-    fn dispatch_key_event(key: KeyEvent, ctx: &mut dyn Context) -> KeyResult {
+    fn dispatch_key_event(key: KeyEvent, ctx: &mut dyn Context) -> KeyEventResult {
         // Phase 1: declarative keybinding table
         for binding in ctx.keybindings() {
             if binding.matches(key) {
-                return KeyResult::DoAction(binding.action);
+                return KeyEventResult::DoAction(binding.action);
             }
         }
 
         // Phase 2: context-specific unbound key handler
         match ctx.handle_unbound_key(key) {
-            KeyResult::NotConsumed => {}
+            KeyEventResult::NotConsumed => {}
             other => return other,
         }
 
         // Phase 3: global keybindings
         for (code, mods, action) in GLOBAL_KEYBINDINGS {
             if key.code == *code && key.modifiers == *mods {
-                return KeyResult::DoAction(action.clone());
+                return KeyEventResult::DoAction(action.clone());
             }
         }
 
         // No keybinding matched
-        KeyResult::NotConsumed
+        KeyEventResult::NotConsumed
     }
 
     fn draw(&mut self, frame: &mut Frame) {

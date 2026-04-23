@@ -7,7 +7,7 @@ use tui::{
 use crate::{
     matrix::models::MatrixMessage,
     ui::{
-        action::{Action, ContextKey, KeyResult},
+        action::{Action, ContextKey, KeyEventResult},
         context::{Context, Keybinding, ViewName},
         widgets::messages::MessagesWidget,
     },
@@ -65,17 +65,17 @@ impl Context for MessageListContext {
         ]
     }
 
-    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyResult {
+    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyEventResult {
         // Enter opens message actions for the highlighted message.
         if key.code == KeyCode::Enter && key.modifiers == KeyModifiers::NONE {
             return self
                 .widget
                 .highlighted_index()
-                .map_or(KeyResult::Consumed, |idx| {
-                    KeyResult::DoAction(Action::SelectMessage(idx))
+                .map_or(KeyEventResult::Consumed, |idx| {
+                    KeyEventResult::DoAction(Action::SelectMessage(idx))
                 });
         }
-        KeyResult::NotConsumed
+        KeyEventResult::NotConsumed
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {

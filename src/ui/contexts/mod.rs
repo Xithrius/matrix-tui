@@ -5,4 +5,4 @@ pub mod message_actions;
 pub mod message_input;
 pub mod message_list;
 pub mod recovery;
-pub mod sidebar;
+pub mod room_list;

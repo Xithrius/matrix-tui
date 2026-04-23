@@ -6,7 +6,7 @@ use tui::{
 };
 
 use crate::ui::{
-    action::{Action, ContextKey, FocusOpts, KeyResult},
+    action::{Action, ContextKey, FocusOpts, KeyEventResult},
     context::{Context, Keybinding, ViewName},
     widgets::user_input::UserInputWidget,
 };
@@ -62,7 +62,7 @@ impl Context for CreateRoomContext {
         ]
     }
 
-    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyResult {
+    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyEventResult {
         self.widget.handle_key(key)
     }
 

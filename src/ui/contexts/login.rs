@@ -7,7 +7,7 @@ use tui::{
 use crate::{
     matrix::login::{LoginChoice, LoginCredentials},
     ui::{
-        action::{Action, ContextKey, FocusOpts, KeyResult},
+        action::{Action, ContextKey, FocusOpts, KeyEventResult},
         context::{Context, Keybinding, ViewName},
         widgets::user_input::UserInputWidget,
     },
@@ -98,20 +98,20 @@ impl Context for LoginContext {
         ]
     }
 
-    fn handle_unbound_key(&mut self, key: KeyEvent) -> KeyResult {
+    fn handle_unbound_key(&mut self, key: KeyEvent) -> KeyEventResult {
         match self.login_mode {
             LoginMode::Username => match key.code {
-                KeyCode::Esc => KeyResult::DoAction(Action::Quit),
+                KeyCode::Esc => KeyEventResult::DoAction(Action::Quit),
                 KeyCode::Tab | KeyCode::BackTab => {
                     self.set_login_mode(LoginMode::Password);
-                    KeyResult::Consumed
+                    KeyEventResult::Consumed
                 }
                 _ => self.username.handle_key(key),
             },
             LoginMode::Password => match key.code {
                 KeyCode::Tab | KeyCode::BackTab => {
                     self.set_login_mode(LoginMode::Username);
-                    KeyResult::Consumed
+                    KeyEventResult::Consumed
                 }
                 _ => self.password.handle_key(key),
             },

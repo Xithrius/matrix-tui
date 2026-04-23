@@ -21,7 +21,7 @@ pub struct FocusOpts {
 
 /// The result of a key dispatch attempt.
 #[derive(Debug, Clone)]
-pub enum KeyResult {
+pub enum KeyEventResult {
     /// A recognised keybinding or unbound handler produced an action.
     DoAction(Action),
     /// The key was consumed (e.g. text input) but produced no action.

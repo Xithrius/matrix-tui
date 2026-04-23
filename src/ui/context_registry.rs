@@ -2,10 +2,9 @@ use crate::ui::{
     action::ContextKey,
     context::Context,
     contexts::{
-        confirm_delete::ConfirmDeleteContext, create_room::CreateRoomContext,
-        login::LoginContext, message_actions::MessageActionsContext,
-        message_input::MessageInputContext, message_list::MessageListContext,
-        recovery::RecoveryContext, sidebar::SidebarContext,
+        confirm_delete::ConfirmDeleteContext, create_room::CreateRoomContext, login::LoginContext,
+        message_actions::MessageActionsContext, message_input::MessageInputContext,
+        message_list::MessageListContext, recovery::RecoveryContext, room_list::RoomListContext,
     },
 };
 
@@ -14,7 +13,7 @@ use crate::ui::{
 pub struct ContextRegistry {
     pub login: LoginContext,
     pub recovery: RecoveryContext,
-    pub sidebar: SidebarContext,
+    pub sidebar: RoomListContext,
     pub message_list: MessageListContext,
     pub message_input: MessageInputContext,
     pub message_actions: MessageActionsContext,
@@ -27,7 +26,7 @@ impl ContextRegistry {
         Self {
             login: LoginContext::new(),
             recovery: RecoveryContext::new(),
-            sidebar: SidebarContext::new(),
+            sidebar: RoomListContext::new(),
             message_list: MessageListContext::new(),
             message_input: MessageInputContext::new(),
             message_actions: MessageActionsContext::new(),

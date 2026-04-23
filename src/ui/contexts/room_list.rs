@@ -7,20 +7,20 @@ use tui::{
 use crate::{
     matrix::models::MatrixRoom,
     ui::{
-        action::{Action, ContextKey, KeyResult},
+        action::{Action, ContextKey, KeyEventResult},
         context::{Context, Keybinding, ViewName},
-        widgets::rooms::RoomNavigationWidget,
+        widgets::rooms::RoomsWidget,
     },
 };
 
-pub struct SidebarContext {
-    widget: RoomNavigationWidget,
+pub struct RoomListContext {
+    widget: RoomsWidget,
 }
 
-impl SidebarContext {
+impl RoomListContext {
     pub fn new() -> Self {
         Self {
-            widget: RoomNavigationWidget::new(),
+            widget: RoomsWidget::new(),
         }
     }
 
@@ -54,7 +54,7 @@ impl SidebarContext {
     }
 }
 
-impl Context for SidebarContext {
+impl Context for RoomListContext {
     fn key(&self) -> ContextKey {
         ContextKey::Sidebar
     }
@@ -105,17 +105,17 @@ impl Context for SidebarContext {
         ]
     }
 
-    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyResult {
+    fn handle_unbound_key(&mut self, key: tui::crossterm::event::KeyEvent) -> KeyEventResult {
         // Enter must be resolved at call time to embed the actual room id.
         if key.code == KeyCode::Enter && key.modifiers == KeyModifiers::NONE {
             return self
                 .widget
                 .highlighted_room_id()
-                .map_or(KeyResult::Consumed, |id| {
-                    KeyResult::DoAction(Action::SelectRoom(id))
+                .map_or(KeyEventResult::Consumed, |id| {
+                    KeyEventResult::DoAction(Action::SelectRoom(id))
                 });
         }
-        KeyResult::NotConsumed
+        KeyEventResult::NotConsumed
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
