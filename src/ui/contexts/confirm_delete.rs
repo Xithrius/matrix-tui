@@ -1,7 +1,7 @@
 use tui::{
     Frame,
     crossterm::event::{KeyCode, KeyModifiers},
-    layout::{Constraint, Layout, Rect},
+    layout::Rect,
     widgets::{Block, BorderType, Paragraph},
 };
 
@@ -70,7 +70,6 @@ impl Context for ConfirmDeleteContext {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let overlay = centered_rect(40, 20, area);
         let paragraph = Paragraph::new("Delete this message?\n\n(Enter/y) Yes    (Esc/n) No")
             .block(
                 Block::bordered()
@@ -78,22 +77,6 @@ impl Context for ConfirmDeleteContext {
                     .border_type(BorderType::Rounded),
             )
             .centered();
-        frame.render_widget(paragraph, overlay);
+        frame.render_widget(paragraph, area);
     }
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let vertical = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(vertical[1])[1]
 }

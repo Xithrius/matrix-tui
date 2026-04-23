@@ -2,7 +2,6 @@ use tui::{
     Frame,
     crossterm::event::{KeyCode, KeyModifiers},
     layout::{Constraint, Layout, Rect},
-    widgets::{Block, BorderType},
 };
 
 use crate::ui::{
@@ -79,34 +78,9 @@ impl Context for CreateRoomContext {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let overlay = centered_rect(50, 30, area);
         let [_, input_area] =
-            Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(overlay);
-
-        // Draw a backdrop block for the overlay
-        frame.render_widget(
-            Block::bordered()
-                .title("Create Room")
-                .border_type(BorderType::Rounded),
-            overlay,
-        );
+            Layout::vertical([Constraint::Percentage(100), Constraint::Length(3)]).areas(area);
 
         self.widget.draw(frame, input_area);
     }
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let vertical = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(vertical[1])[1]
 }

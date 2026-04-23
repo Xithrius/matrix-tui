@@ -1,7 +1,7 @@
 use tui::{
     Frame,
     crossterm::event::{KeyCode, KeyModifiers},
-    layout::{Constraint, Layout, Rect},
+    layout::Rect,
     widgets::{Block, BorderType, List, ListItem},
 };
 
@@ -70,7 +70,6 @@ impl Context for MessageActionsContext {
     }
 
     fn draw(&mut self, frame: &mut Frame, area: Rect) {
-        let overlay = centered_rect(40, 10, area);
         let items = vec![
             ListItem::new("(r) Reply"),
             ListItem::new("(e) Edit"),
@@ -82,22 +81,6 @@ impl Context for MessageActionsContext {
                 .title("Message Actions")
                 .border_type(BorderType::Rounded),
         );
-        frame.render_widget(list, overlay);
+        frame.render_widget(list, area);
     }
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let vertical = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(vertical[1])[1]
 }
