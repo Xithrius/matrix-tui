@@ -58,8 +58,6 @@ impl App {
         Ok(())
     }
 
-    // --- Event loop ---
-
     pub async fn handle_events(&mut self) -> Result<()> {
         let Some(event) = self.events.next().await else {
             return Ok(());
@@ -82,8 +80,6 @@ impl App {
         self.ui.status_line.tick();
     }
 
-    // --- Key dispatch ---
-
     async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         debug!("Key event: {:?}", key);
 
@@ -94,7 +90,7 @@ impl App {
         // Borrow the context, dispatch, then release the borrow before execute_action.
         let result = {
             let ctx = self.ui.registry.get_mut(focused_key);
-            Self::dispatch(key, ctx)
+            Self::dispatch_key_event(key, ctx)
         };
 
         if let KeyResult::DoAction(action) = result {
@@ -104,29 +100,30 @@ impl App {
         Ok(())
     }
 
-    /// Three-phase dispatch: keybinding table -> unbound handler -> global bindings.
-    fn dispatch(key: KeyEvent, ctx: &mut dyn Context) -> KeyResult {
+    fn dispatch_key_event(key: KeyEvent, ctx: &mut dyn Context) -> KeyResult {
         // Phase 1: declarative keybinding table
         for binding in ctx.keybindings() {
             if binding.matches(key) {
                 return KeyResult::DoAction(binding.action);
             }
         }
+
         // Phase 2: context-specific unbound key handler
         match ctx.handle_unbound_key(key) {
             KeyResult::NotConsumed => {}
             other => return other,
         }
-        // Phase 3: global keybindings (always available)
+
+        // Phase 3: global keybindings
         for (code, mods, action) in GLOBAL_KEYBINDINGS {
             if key.code == *code && key.modifiers == *mods {
                 return KeyResult::DoAction(action.clone());
             }
         }
+
+        // No keybinding matched
         KeyResult::NotConsumed
     }
-
-    // --- Rendering ---
 
     fn draw(&mut self, frame: &mut Frame) {
         let area = frame.area();
@@ -168,7 +165,20 @@ impl App {
                 // Render overlays on top
                 for entry in self.ui.ctx_mgr.stack().to_vec() {
                     if let StackEntry::Overlay(key) = entry {
-                        let overlay_area = centered_rect(60, 40, area);
+                        let [_, overlay_area, _] = Layout::vertical([
+                            Constraint::Fill(1),
+                            Constraint::Fill(3),
+                            Constraint::Fill(1),
+                        ])
+                        .areas(area);
+
+                        let [_, overlay_area, _] = Layout::horizontal([
+                            Constraint::Fill(1),
+                            Constraint::Fill(3),
+                            Constraint::Fill(1),
+                        ])
+                        .areas(overlay_area);
+
                         self.ui.registry.get_mut(key).draw(frame, overlay_area);
                     }
                 }
@@ -184,20 +194,4 @@ impl App {
             self.ui.registry.get_mut(key).draw(frame, area);
         }
     }
-}
-
-fn centered_rect(percent_x: u16, percent_y: u16, area: Rect) -> Rect {
-    let vertical = Layout::vertical([
-        Constraint::Percentage((100 - percent_y) / 2),
-        Constraint::Percentage(percent_y),
-        Constraint::Percentage((100 - percent_y) / 2),
-    ])
-    .split(area);
-
-    Layout::horizontal([
-        Constraint::Percentage((100 - percent_x) / 2),
-        Constraint::Percentage(percent_x),
-        Constraint::Percentage((100 - percent_x) / 2),
-    ])
-    .split(vertical[1])[1]
 }
