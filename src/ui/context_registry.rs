@@ -12,7 +12,7 @@ use crate::ui::{
 pub struct ContextRegistry {
     pub login: LoginContext,
     pub recovery: RecoveryContext,
-    pub sidebar: RoomListContext,
+    pub room_list: RoomListContext,
     pub message_list: MessageListContext,
     pub message_input: MessageInputContext,
     pub message_actions: MessageActionsContext,
@@ -25,7 +25,7 @@ impl ContextRegistry {
         Self {
             login: LoginContext::new(),
             recovery: RecoveryContext::new(),
-            sidebar: RoomListContext::new(),
+            room_list: RoomListContext::new(),
             message_list: MessageListContext::new(),
             message_input: MessageInputContext::new(),
             message_actions: MessageActionsContext::new(),
@@ -38,7 +38,7 @@ impl ContextRegistry {
         match key {
             ContextKey::Login => &self.login,
             ContextKey::Recovery => &self.recovery,
-            ContextKey::RoomList => &self.sidebar,
+            ContextKey::RoomList => &self.room_list,
             ContextKey::MessageList => &self.message_list,
             ContextKey::MessageInput => &self.message_input,
             ContextKey::MessageActions => &self.message_actions,
@@ -51,7 +51,7 @@ impl ContextRegistry {
         match key {
             ContextKey::Login => &mut self.login,
             ContextKey::Recovery => &mut self.recovery,
-            ContextKey::RoomList => &mut self.sidebar,
+            ContextKey::RoomList => &mut self.room_list,
             ContextKey::MessageList => &mut self.message_list,
             ContextKey::MessageInput => &mut self.message_input,
             ContextKey::MessageActions => &mut self.message_actions,

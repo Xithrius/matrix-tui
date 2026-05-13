@@ -68,14 +68,14 @@ impl App {
 
                 for room in rooms {
                     let room_id = room.id.clone();
-                    self.ui.ctx_mgr.registry.sidebar.push_room(room);
+                    self.ui.ctx_mgr.registry.room_list.push_room(room);
                     self.matrix_tx
                         .send(MatrixAction::GetRoomMessages(room_id))
                         .await?;
                 }
 
                 if let Some(id) = first_room {
-                    self.ui.ctx_mgr.registry.sidebar.select_room(&id);
+                    self.ui.ctx_mgr.registry.room_list.select_room(&id);
                     self.ui.ctx_mgr.registry.message_list.set_active_room(&id);
                 }
             }

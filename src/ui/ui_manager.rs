@@ -117,8 +117,11 @@ impl UiManager {
                         .areas(rest_area);
 
                 self.header.draw(frame, header_area);
-                self.ctx_mgr.registry.sidebar.draw(frame, sidebar_area);
-                self.ctx_mgr.registry.message_list.draw(frame, messages_area);
+                self.ctx_mgr.registry.room_list.draw(frame, sidebar_area);
+                self.ctx_mgr
+                    .registry
+                    .message_list
+                    .draw(frame, messages_area);
                 self.ctx_mgr.registry.message_input.draw(frame, input_area);
 
                 // Render overlays on top

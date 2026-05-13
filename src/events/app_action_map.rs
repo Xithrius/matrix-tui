@@ -25,7 +25,7 @@ impl App {
                 self.ui
                     .status_line
                     .set_status(Status::Info("Logging out...".to_string()), None);
-                self.ui.ctx_mgr.registry.sidebar.clear();
+                self.ui.ctx_mgr.registry.room_list.clear();
                 self.ui.ctx_mgr.registry.message_list.clear();
                 self.ui.ctx_mgr.enter_login();
             }
@@ -69,7 +69,7 @@ impl App {
             Action::SendMessage => {
                 let text = self.ui.ctx_mgr.registry.message_input.take_buffer();
                 if !text.trim().is_empty() {
-                    let room_id = self.ui.ctx_mgr.registry.sidebar.get_selected_room_id();
+                    let room_id = self.ui.ctx_mgr.registry.room_list.get_selected_room_id();
                     if let Some(room_id) = room_id {
                         self.matrix_tx
                             .send(MatrixAction::SendMessage {
@@ -130,7 +130,7 @@ impl App {
 
             // --- Rooms ---
             Action::SelectRoom(id) => {
-                self.ui.ctx_mgr.registry.sidebar.select_room(&id);
+                self.ui.ctx_mgr.registry.room_list.select_room(&id);
                 self.ui.ctx_mgr.registry.message_list.set_active_room(&id);
                 self.ui
                     .ctx_mgr
@@ -155,10 +155,10 @@ impl App {
                 self.ui.ctx_mgr.pop();
             }
             Action::ScrollRoomsUp => {
-                self.ui.ctx_mgr.registry.sidebar.scroll_up();
+                self.ui.ctx_mgr.registry.room_list.scroll_up();
             }
             Action::ScrollRoomsDown => {
-                self.ui.ctx_mgr.registry.sidebar.scroll_down();
+                self.ui.ctx_mgr.registry.room_list.scroll_down();
             }
 
             // --- Auth ---

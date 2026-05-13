@@ -24,7 +24,7 @@ pub enum ContextKey {
 /// Describes how a context is layered on the screen when it is pushed onto the stack.
 #[derive(Debug, Clone)]
 pub enum StackEntry {
-    /// The normal in-session layer: sidebar + message list + input all visible.
+    /// The normal in-session layer: room list + message list + input all visible.
     MainScreen,
     /// An overlay context floating above the static layer.
     Overlay(ContextKey),
