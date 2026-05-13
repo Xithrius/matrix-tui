@@ -7,8 +7,8 @@ use tui::{
 use crate::{
     matrix::models::MatrixRoom,
     ui::{
-        action::{Action, ContextKey, KeyEventResult},
-        context::{Context, Keybinding, ViewName},
+        action::{Action, KeyEventResult},
+        context::{Context, ContextKey, Keybinding, ViewName},
         widgets::rooms::RoomsWidget,
     },
 };

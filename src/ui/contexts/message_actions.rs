@@ -6,8 +6,8 @@ use tui::{
 };
 
 use crate::ui::{
-    action::{Action, ContextKey, FocusOpts},
-    context::{Context, Keybinding, ViewName},
+    action::{Action, FocusOpts},
+    context::{Context, ContextKey, Keybinding, ViewName},
 };
 
 pub struct MessageActionsContext {

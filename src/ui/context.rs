@@ -4,7 +4,7 @@ use tui::{
     layout::Rect,
 };
 
-use crate::ui::action::{Action, ContextKey, FocusOpts, KeyEventResult};
+use crate::ui::action::{Action, FocusOpts, KeyEventResult};
 
 /// The named terminal region a context renders into.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,6 +15,21 @@ pub enum ViewName {
     Input,
     Overlay,
     Fullscreen,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum ContextKey {
+    // Fullscreen contexts
+    Login,
+    Recovery,
+    // MainScreen panels (always visible during a session)
+    Sidebar,
+    MessageList,
+    MessageInput,
+    // Overlay contexts
+    MessageActions,
+    CreateRoom,
+    ConfirmDelete,
 }
 
 /// A single entry in a context's declarative keybinding table.

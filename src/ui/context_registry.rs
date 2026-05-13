@@ -1,6 +1,5 @@
 use crate::ui::{
-    action::ContextKey,
-    context::Context,
+    context::{Context, ContextKey},
     contexts::{
         confirm_delete::ConfirmDeleteContext, create_room::CreateRoomContext, login::LoginContext,
         message_actions::MessageActionsContext, message_input::MessageInputContext,

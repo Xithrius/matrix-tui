@@ -1,7 +1,4 @@
-use crate::ui::{
-    action::{ContextKey, FocusOpts},
-    context_registry::ContextRegistry,
-};
+use crate::ui::{action::FocusOpts, context::ContextKey, context_registry::ContextRegistry};
 
 #[derive(Debug, Clone)]
 pub enum StackEntry {

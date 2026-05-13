@@ -5,7 +5,8 @@ use crate::{
     App,
     matrix::event::MatrixAction,
     ui::{
-        action::{Action, ContextKey, FocusOpts},
+        action::{Action, FocusOpts},
+        context::ContextKey,
         context_manager::{cycle_static_backward, cycle_static_forward},
         widgets::status_line::Status,
     },

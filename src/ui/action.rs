@@ -1,17 +1,4 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum ContextKey {
-    // Fullscreen contexts
-    Login,
-    Recovery,
-    // MainScreen panels (always visible during a session)
-    Sidebar,
-    MessageList,
-    MessageInput,
-    // Overlay contexts
-    MessageActions,
-    CreateRoom,
-    ConfirmDelete,
-}
+use crate::ui::context::ContextKey;
 
 #[derive(Debug, Clone, Default)]
 pub struct FocusOpts {

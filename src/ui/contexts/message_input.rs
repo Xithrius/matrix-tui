@@ -5,8 +5,8 @@ use tui::{
 };
 
 use crate::ui::{
-    action::{Action, ContextKey, FocusOpts, KeyEventResult},
-    context::{Context, Keybinding, ViewName},
+    action::{Action, FocusOpts, KeyEventResult},
+    context::{Context, ContextKey, Keybinding, ViewName},
     widgets::user_input::UserInputWidget,
 };
 
