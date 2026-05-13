@@ -136,9 +136,9 @@ impl ContextManager {
 
 /// The three main screen panels that participate in Tab cycling.
 const MAIN_SCREEN_CYCLE_ORDER: &[ContextKey] = &[
-    ContextKey::Sidebar,
-    ContextKey::MessageList,
     ContextKey::MessageInput,
+    ContextKey::MessageList,
+    ContextKey::Sidebar,
 ];
 
 pub fn cycle_main_screen_forward(current: ContextKey) -> ContextKey {
