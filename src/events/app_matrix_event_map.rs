@@ -23,7 +23,7 @@ impl App {
                 );
             }
             MatrixEvent::LoginChoices(choices) => {
-                self.ui.registry.login.set_login_choices(choices);
+                self.ui.ctx_mgr.registry.login.set_login_choices(choices);
                 self.ui
                     .status_line
                     .set_status(Status::Info("Select login option".to_string()), None);
@@ -40,25 +40,25 @@ impl App {
                 );
             }
             MatrixEvent::LoginFailed => {
-                self.ui.ctx_mgr.enter_login(&mut self.ui.registry);
+                self.ui.ctx_mgr.enter_login();
                 self.ui
                     .status_line
                     .set_status(Status::Error("Login failed".to_string()), Some(5));
             }
             MatrixEvent::NeedsRecoveryKey => {
-                self.ui.ctx_mgr.enter_recovery(&mut self.ui.registry);
+                self.ui.ctx_mgr.enter_recovery();
                 self.ui.status_line.set_status(
                     Status::Info("Enter your recovery key to restore encryption".to_string()),
                     None,
                 );
             }
             MatrixEvent::ShowNewRecoveryKey(key) => {
-                self.ui.registry.recovery.show_new_key(key);
+                self.ui.ctx_mgr.registry.recovery.show_new_key(key);
                 // ctx_mgr is already in Recovery fullscreen; just update the widget.
             }
             MatrixEvent::EncryptionSetupComplete => {
                 self.ui.header.set_loading(false);
-                self.ui.ctx_mgr.enter_session(&mut self.ui.registry);
+                self.ui.ctx_mgr.enter_session();
                 self.ui
                     .status_line
                     .set_status(Status::Info("Encryption configured".to_string()), Some(5));
@@ -68,15 +68,15 @@ impl App {
 
                 for room in rooms {
                     let room_id = room.id.clone();
-                    self.ui.registry.sidebar.push_room(room);
+                    self.ui.ctx_mgr.registry.sidebar.push_room(room);
                     self.matrix_tx
                         .send(MatrixAction::GetRoomMessages(room_id))
                         .await?;
                 }
 
                 if let Some(id) = first_room {
-                    self.ui.registry.sidebar.select_room(&id);
-                    self.ui.registry.message_list.set_active_room(&id);
+                    self.ui.ctx_mgr.registry.sidebar.select_room(&id);
+                    self.ui.ctx_mgr.registry.message_list.set_active_room(&id);
                 }
             }
             MatrixEvent::RoomMessages {
@@ -86,6 +86,7 @@ impl App {
                 messages.sort_by_key(|m| m.datetime);
                 for message in messages {
                     self.ui
+                        .ctx_mgr
                         .registry
                         .message_list
                         .push_message(&room_id, message);
@@ -93,6 +94,7 @@ impl App {
             }
             MatrixEvent::Message { room_id, message } => {
                 self.ui
+                    .ctx_mgr
                     .registry
                     .message_list
                     .push_message(&room_id, message);

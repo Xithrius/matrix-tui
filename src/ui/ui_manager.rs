@@ -10,7 +10,6 @@ use crate::{
         action::{Action, KeyEventResult},
         context::{Context, StackEntry},
         context_manager::ContextManager,
-        context_registry::ContextRegistry,
         widgets::{
             header::HeaderWidget,
             status_line::{Status, StatusLineWidget},
@@ -27,7 +26,6 @@ const GLOBAL_KEYBINDINGS: &[(KeyCode, KeyModifiers, Action)] = &[
 ];
 
 pub struct UiManager {
-    pub registry: ContextRegistry,
     pub ctx_mgr: ContextManager,
     /// Always-visible title bar (not part of the focus system).
     pub header: HeaderWidget,
@@ -38,7 +36,6 @@ pub struct UiManager {
 impl UiManager {
     pub fn new(config: &CoreConfig) -> Self {
         Self {
-            registry: ContextRegistry::new(),
             ctx_mgr: ContextManager::new(),
             header: HeaderWidget::new(config, "matrix-tui".to_string()),
             status_line: StatusLineWidget::new(
@@ -58,7 +55,7 @@ impl UiManager {
             return KeyEventResult::NotConsumed;
         };
 
-        let ctx = self.registry.get_mut(focused_ctx_key);
+        let ctx = self.ctx_mgr.registry.get_mut(focused_ctx_key);
 
         // Phase 1: declarative keybinding table
         for binding in ctx.keybindings() {
@@ -98,7 +95,7 @@ impl UiManager {
                         .areas(area);
 
                 if let Some(key) = self.ctx_mgr.focused_ctx_key() {
-                    self.registry.get_mut(key).draw(frame, content_area);
+                    self.ctx_mgr.registry.get_mut(key).draw(frame, content_area);
                 }
 
                 self.status_line.draw(frame, status_area);
@@ -120,9 +117,9 @@ impl UiManager {
                         .areas(rest_area);
 
                 self.header.draw(frame, header_area);
-                self.registry.sidebar.draw(frame, sidebar_area);
-                self.registry.message_list.draw(frame, messages_area);
-                self.registry.message_input.draw(frame, input_area);
+                self.ctx_mgr.registry.sidebar.draw(frame, sidebar_area);
+                self.ctx_mgr.registry.message_list.draw(frame, messages_area);
+                self.ctx_mgr.registry.message_input.draw(frame, input_area);
 
                 // Render overlays on top
                 for entry in self.ctx_mgr.stack().to_vec() {
@@ -141,7 +138,7 @@ impl UiManager {
                         ])
                         .areas(overlay_area);
 
-                        self.registry.get_mut(key).draw(frame, overlay_area);
+                        self.ctx_mgr.registry.get_mut(key).draw(frame, overlay_area);
                     }
                 }
 
