@@ -7,7 +7,7 @@ use tui::{
 
 use crate::ui::{
     action::{Action, FocusOpts},
-    context::{Context, ContextKey, Keybinding, ViewName},
+    context::{Context, Keybinding},
 };
 
 pub struct ConfirmDeleteContext {
@@ -23,18 +23,6 @@ impl ConfirmDeleteContext {
 }
 
 impl Context for ConfirmDeleteContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::ConfirmDelete
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Overlay
-    }
-
-    fn is_overlay(&self) -> bool {
-        true
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         let idx = self.selected_message.unwrap_or(0);
         vec![

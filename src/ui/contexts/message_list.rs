@@ -8,7 +8,7 @@ use crate::{
     matrix::models::MatrixMessage,
     ui::{
         action::{Action, KeyEventResult},
-        context::{Context, ContextKey, Keybinding, ViewName},
+        context::{Context, Keybinding},
         widgets::messages::MessagesWidget,
     },
 };
@@ -40,14 +40,6 @@ impl MessageListContext {
 }
 
 impl Context for MessageListContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::MessageList
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Messages
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

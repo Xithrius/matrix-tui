@@ -8,7 +8,7 @@ use crate::{
     matrix::models::MatrixRoom,
     ui::{
         action::{Action, KeyEventResult},
-        context::{Context, ContextKey, Keybinding, ViewName},
+        context::{Context, Keybinding},
         widgets::rooms::RoomsWidget,
     },
 };
@@ -55,14 +55,6 @@ impl RoomListContext {
 }
 
 impl Context for RoomListContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::Sidebar
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Sidebar
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

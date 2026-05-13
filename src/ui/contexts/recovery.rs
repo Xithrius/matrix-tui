@@ -7,7 +7,7 @@ use tui::{
 
 use crate::ui::{
     action::{Action, FocusOpts, KeyEventResult},
-    context::{Context, ContextKey, Keybinding, ViewName},
+    context::{Context, Keybinding},
     widgets::user_input::UserInputWidget,
 };
 
@@ -43,18 +43,6 @@ impl RecoveryContext {
 }
 
 impl Context for RecoveryContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::Recovery
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Fullscreen
-    }
-
-    fn is_fullscreen(&self) -> bool {
-        true
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![]
     }

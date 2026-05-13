@@ -8,7 +8,7 @@ use crate::{
     matrix::login::{LoginChoice, LoginCredentials},
     ui::{
         action::{Action, FocusOpts, KeyEventResult},
-        context::{Context, ContextKey, Keybinding, ViewName},
+        context::{Context, Keybinding},
         widgets::user_input::UserInputWidget,
     },
 };
@@ -74,18 +74,6 @@ impl LoginContext {
 }
 
 impl Context for LoginContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::Login
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Fullscreen
-    }
-
-    fn is_fullscreen(&self) -> bool {
-        true
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(KeyCode::Esc, KeyModifiers::NONE, Action::Quit, "Quit"),

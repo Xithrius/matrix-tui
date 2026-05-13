@@ -7,7 +7,7 @@ use tui::{
 
 use crate::ui::{
     action::{Action, FocusOpts},
-    context::{Context, ContextKey, Keybinding, ViewName},
+    context::{Context, Keybinding},
 };
 
 pub struct MessageActionsContext {
@@ -23,18 +23,6 @@ impl MessageActionsContext {
 }
 
 impl Context for MessageActionsContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::MessageActions
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Overlay
-    }
-
-    fn is_overlay(&self) -> bool {
-        true
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         let idx = self.selected_message.unwrap_or(0);
         vec![

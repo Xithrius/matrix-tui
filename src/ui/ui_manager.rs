@@ -8,8 +8,8 @@ use crate::{
     config::CoreConfig,
     ui::{
         action::{Action, KeyEventResult},
-        context::Context,
-        context_manager::{ContextManager, StackEntry},
+        context::{Context, StackEntry},
+        context_manager::ContextManager,
         context_registry::ContextRegistry,
         widgets::{
             header::HeaderWidget,

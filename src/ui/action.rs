@@ -1,4 +1,4 @@
-use crate::ui::context::ContextKey;
+use crate::ui::context::StackEntry;
 
 #[derive(Debug, Clone, Default)]
 pub struct FocusOpts {
@@ -23,8 +23,8 @@ pub enum Action {
     // --- Navigation ---
     /// Pop the top context off the stack (Escape).
     PopContext,
-    /// Push an overlay or fullscreen context.
-    PushContext(ContextKey, FocusOpts),
+    /// Push an overlay or fullscreen context onto the navigation stack.
+    PushStack(StackEntry, FocusOpts),
 
     // --- Panel focus cycling ---
     CycleFocusForward,

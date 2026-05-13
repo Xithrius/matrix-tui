@@ -6,7 +6,7 @@ use crate::{
     matrix::event::MatrixAction,
     ui::{
         action::{Action, FocusOpts},
-        context::ContextKey,
+        context::{ContextKey, StackEntry},
         context_manager::{cycle_main_screen_backward, cycle_main_screen_forward},
         widgets::status_line::Status,
     },
@@ -34,8 +34,8 @@ impl App {
             Action::PopContext => {
                 self.ui.ctx_mgr.pop(&mut self.ui.registry);
             }
-            Action::PushContext(key, opts) => {
-                self.ui.ctx_mgr.push(key, opts, &mut self.ui.registry);
+            Action::PushStack(entry, opts) => {
+                self.ui.ctx_mgr.push(entry, opts, &mut self.ui.registry);
             }
 
             // --- Panel focus cycling ---
@@ -91,7 +91,7 @@ impl App {
             Action::SelectMessage(idx) => {
                 self.ui.registry.message_actions.selected_message = Some(idx);
                 self.ui.ctx_mgr.push(
-                    ContextKey::MessageActions,
+                    StackEntry::Overlay(ContextKey::MessageActions),
                     FocusOpts {
                         selected_message: Some(idx),
                         ..Default::default()
@@ -116,7 +116,7 @@ impl App {
             }
             Action::DeleteMessage(idx) => {
                 self.ui.ctx_mgr.push(
-                    ContextKey::ConfirmDelete,
+                    StackEntry::Overlay(ContextKey::ConfirmDelete),
                     FocusOpts {
                         selected_message: Some(idx),
                         ..Default::default()
@@ -150,7 +150,7 @@ impl App {
             }
             Action::OpenCreateRoom => {
                 self.ui.ctx_mgr.push(
-                    ContextKey::CreateRoom,
+                    StackEntry::Overlay(ContextKey::CreateRoom),
                     FocusOpts::default(),
                     &mut self.ui.registry,
                 );

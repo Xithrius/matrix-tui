@@ -6,7 +6,7 @@ use tui::{
 
 use crate::ui::{
     action::{Action, FocusOpts, KeyEventResult},
-    context::{Context, ContextKey, Keybinding, ViewName},
+    context::{Context, Keybinding},
     widgets::user_input::UserInputWidget,
 };
 
@@ -46,14 +46,6 @@ impl MessageInputContext {
 }
 
 impl Context for MessageInputContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::MessageInput
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Input
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

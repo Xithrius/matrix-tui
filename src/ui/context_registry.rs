@@ -34,6 +34,7 @@ impl ContextRegistry {
         }
     }
 
+    #[allow(dead_code)]
     pub fn get(&self, key: ContextKey) -> &dyn Context {
         match key {
             ContextKey::Login => &self.login,

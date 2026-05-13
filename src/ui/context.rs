@@ -6,17 +6,6 @@ use tui::{
 
 use crate::ui::action::{Action, FocusOpts, KeyEventResult};
 
-/// The named terminal region a context renders into.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[allow(dead_code)]
-pub enum ViewName {
-    Sidebar,
-    Messages,
-    Input,
-    Overlay,
-    Fullscreen,
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ContextKey {
     // Fullscreen contexts
@@ -30,6 +19,17 @@ pub enum ContextKey {
     MessageActions,
     CreateRoom,
     ConfirmDelete,
+}
+
+/// Describes how a context is layered on the screen when it is pushed onto the stack.
+#[derive(Debug, Clone)]
+pub enum StackEntry {
+    /// The normal in-session layer: sidebar + message list + input all visible.
+    MainScreen,
+    /// An overlay context floating above the static layer.
+    Overlay(ContextKey),
+    /// A fullscreen context that hides the static layer entirely.
+    Fullscreen(ContextKey),
 }
 
 /// A single entry in a context's declarative keybinding table.
@@ -63,25 +63,14 @@ impl Keybinding {
 }
 
 /// The core trait every UI context must implement.
-#[allow(dead_code)]
 ///
 /// A context is a singleton that owns one logical component's draw logic,
 /// keybindings, and unbound key handling. It wraps a widget internally but
 /// exposes only domain-appropriate methods to callers.
+///
+/// Contexts have no knowledge of where they are rendered; that
+/// responsibility belongs entirely to `UiManager` and `ContextManager`.
 pub trait Context {
-    fn key(&self) -> ContextKey;
-    fn view(&self) -> ViewName;
-
-    /// True if this context occupies the full terminal, hiding main screen panels.
-    fn is_fullscreen(&self) -> bool {
-        false
-    }
-
-    /// True if this context floats above the main screen panel layer.
-    fn is_overlay(&self) -> bool {
-        false
-    }
-
     /// Declarative keybinding table. Checked first during dispatch.
     fn keybindings(&self) -> Vec<Keybinding>;
 

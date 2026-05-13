@@ -1,14 +1,8 @@
-use crate::ui::{action::FocusOpts, context::ContextKey, context_registry::ContextRegistry};
-
-#[derive(Debug, Clone)]
-pub enum StackEntry {
-    /// The normal in-session layer: sidebar + message list + input all visible.
-    MainScreen,
-    /// An overlay context floating above the main screen layer.
-    Overlay(ContextKey),
-    /// A fullscreen context that hides the main screen layer entirely.
-    Fullscreen(ContextKey),
-}
+use crate::ui::{
+    action::FocusOpts,
+    context::{ContextKey, StackEntry},
+    context_registry::ContextRegistry,
+};
 
 /// Tracks which context is currently active on two orthogonal axes:
 /// - The push/pop stack for overlays and fullscreen contexts.
@@ -65,13 +59,11 @@ impl ContextManager {
             .on_focus(FocusOpts::default());
     }
 
-    /// Push an overlay (or fullscreen) context onto the stack.
-    pub fn push(&mut self, key: ContextKey, opts: FocusOpts, registry: &mut ContextRegistry) {
-        let is_fullscreen = registry.get(key).is_fullscreen();
-        let entry = if is_fullscreen {
-            StackEntry::Fullscreen(key)
-        } else {
-            StackEntry::Overlay(key)
+    /// Push an overlay or fullscreen context onto the stack.
+    pub fn push(&mut self, entry: StackEntry, opts: FocusOpts, registry: &mut ContextRegistry) {
+        let key = match &entry {
+            StackEntry::Overlay(k) | StackEntry::Fullscreen(k) => *k,
+            StackEntry::MainScreen => return,
         };
 
         if let Some(prev) = self.focused_ctx_key() {

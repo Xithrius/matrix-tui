@@ -6,7 +6,7 @@ use tui::{
 
 use crate::ui::{
     action::{Action, FocusOpts, KeyEventResult},
-    context::{Context, ContextKey, Keybinding, ViewName},
+    context::{Context, Keybinding},
     widgets::user_input::UserInputWidget,
 };
 
@@ -32,18 +32,6 @@ impl CreateRoomContext {
 }
 
 impl Context for CreateRoomContext {
-    fn key(&self) -> ContextKey {
-        ContextKey::CreateRoom
-    }
-
-    fn view(&self) -> ViewName {
-        ViewName::Overlay
-    }
-
-    fn is_overlay(&self) -> bool {
-        true
-    }
-
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(
