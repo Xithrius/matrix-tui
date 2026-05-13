@@ -10,10 +10,7 @@ use crate::{
         action::{Action, KeyEventResult},
         context::{Context, StackEntry},
         context_manager::ContextManager,
-        widgets::{
-            header::HeaderWidget,
-            status_line::{Status, StatusLineWidget},
-        },
+        widgets::{HeaderWidget, StatusLineWidget, status_line::Status},
     },
 };
 

@@ -9,7 +9,7 @@ use crate::{
     ui::{
         action::{Action, FocusOpts, KeyEventResult},
         context::{Context, Keybinding},
-        widgets::user_input::UserInputWidget,
+        widgets::UserInputWidget,
     },
 };
 
