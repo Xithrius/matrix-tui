@@ -6,7 +6,7 @@ use crate::ui::{
 #[derive(Debug, Clone)]
 pub enum StackEntry {
     /// The normal in-session layer: sidebar + message list + input all visible.
-    Static,
+    MainScreen,
     /// An overlay context floating above the static layer.
     Overlay(ContextKey),
     /// A fullscreen context that hides the static layer entirely.
@@ -15,10 +15,10 @@ pub enum StackEntry {
 
 /// Tracks which context is currently active on two orthogonal axes:
 /// - The push/pop stack for overlays and fullscreen contexts.
-/// - Which static panel is focused when the top of the stack is `Static`.
+/// - Which static panel is focused when the top of the stack is `MainScreen`.
 pub struct ContextManager {
     stack: Vec<StackEntry>,
-    /// Only meaningful when `stack.last()` is `StackEntry::Static`.
+    /// Only meaningful when `stack.last()` is `StackEntry::MainScreen`.
     focused_static: ContextKey,
 }
 
@@ -48,7 +48,7 @@ impl ContextManager {
             registry.get_mut(prev).on_blur();
         }
         self.stack.clear();
-        self.stack.push(StackEntry::Static);
+        self.stack.push(StackEntry::MainScreen);
         self.focused_static = ContextKey::MessageInput;
         registry
             .get_mut(ContextKey::MessageInput)
@@ -85,7 +85,7 @@ impl ContextManager {
         registry.get_mut(key).on_focus(opts);
     }
 
-    /// Pop the top context. No-op if only the base Static layer remains.
+    /// Pop the top context. No-op if only the base `MainScreen` layer remains.
     pub fn pop(&mut self, registry: &mut ContextRegistry) {
         if self.stack.len() <= 1 {
             return;
@@ -103,9 +103,9 @@ impl ContextManager {
     }
 
     /// Switch which static panel is focused without touching the stack.
-    /// No-op if the top of the stack is not the Static layer.
+    /// No-op if the top of the stack is not the `MainScreen` layer.
     pub fn activate_static(&mut self, key: ContextKey, registry: &mut ContextRegistry) {
-        if !matches!(self.stack.last(), Some(StackEntry::Static)) {
+        if !matches!(self.stack.last(), Some(StackEntry::MainScreen)) {
             return;
         }
         registry.get_mut(self.focused_static).on_blur();
@@ -116,7 +116,7 @@ impl ContextManager {
     /// The key of whichever context is currently focused.
     pub fn focused_ctx_key(&self) -> Option<ContextKey> {
         match self.stack.last()? {
-            StackEntry::Static => Some(self.focused_static),
+            StackEntry::MainScreen => Some(self.focused_static),
             StackEntry::Overlay(key) | StackEntry::Fullscreen(key) => Some(*key),
         }
     }
@@ -134,7 +134,7 @@ impl ContextManager {
             Some(StackEntry::Overlay(ContextKey::MessageActions)) => "Message Actions",
             Some(StackEntry::Overlay(ContextKey::CreateRoom)) => "Create Room",
             Some(StackEntry::Overlay(ContextKey::ConfirmDelete)) => "Confirm Delete",
-            Some(StackEntry::Static) => match self.focused_static {
+            Some(StackEntry::MainScreen) => match self.focused_static {
                 ContextKey::Sidebar => "Rooms",
                 ContextKey::MessageList => "Messages",
                 ContextKey::MessageInput => "Input",

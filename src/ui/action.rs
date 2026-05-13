@@ -3,7 +3,7 @@ pub enum ContextKey {
     // Fullscreen contexts
     Login,
     Recovery,
-    // Static panels (always visible during a session)
+    // MainScreen panels (always visible during a session)
     Sidebar,
     MessageList,
     MessageInput,
