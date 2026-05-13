@@ -23,6 +23,10 @@ impl MessageActionsContext {
 }
 
 impl Context for MessageActionsContext {
+    fn title(&self) -> &'static str {
+        "Message actions"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         let idx = self.selected_message.unwrap_or(0);
         vec![

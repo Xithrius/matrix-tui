@@ -74,6 +74,10 @@ impl LoginContext {
 }
 
 impl Context for LoginContext {
+    fn title(&self) -> &'static str {
+        "Login"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(KeyCode::Esc, KeyModifiers::NONE, Action::Quit, "Quit"),

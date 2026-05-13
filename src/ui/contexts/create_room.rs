@@ -32,6 +32,10 @@ impl CreateRoomContext {
 }
 
 impl Context for CreateRoomContext {
+    fn title(&self) -> &'static str {
+        "Create room"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

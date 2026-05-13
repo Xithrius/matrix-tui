@@ -43,6 +43,10 @@ impl RecoveryContext {
 }
 
 impl Context for RecoveryContext {
+    fn title(&self) -> &'static str {
+        "Recovery"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![]
     }

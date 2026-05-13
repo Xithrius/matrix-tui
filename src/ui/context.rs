@@ -71,6 +71,9 @@ impl Keybinding {
 /// Contexts have no knowledge of where they are rendered; that
 /// responsibility belongs entirely to `UiManager` and `ContextManager`.
 pub trait Context {
+    /// Returns a display string as a title for the context.
+    fn title(&self) -> &'static str;
+
     /// Declarative keybinding table. Checked first during dispatch.
     fn keybindings(&self) -> Vec<Keybinding>;
 

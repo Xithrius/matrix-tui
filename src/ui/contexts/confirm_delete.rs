@@ -23,6 +23,10 @@ impl ConfirmDeleteContext {
 }
 
 impl Context for ConfirmDeleteContext {
+    fn title(&self) -> &'static str {
+        "Confirm delete"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         let idx = self.selected_message.unwrap_or(0);
         vec![

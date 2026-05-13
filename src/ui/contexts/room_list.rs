@@ -55,6 +55,10 @@ impl RoomListContext {
 }
 
 impl Context for RoomListContext {
+    fn title(&self) -> &'static str {
+        "Rooms"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

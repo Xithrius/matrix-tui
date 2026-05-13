@@ -46,6 +46,10 @@ impl MessageInputContext {
 }
 
 impl Context for MessageInputContext {
+    fn title(&self) -> &'static str {
+        "Message input"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(

@@ -89,7 +89,9 @@ impl ContextManager {
         self.stack.pop();
 
         if let Some(next_key) = self.focused_ctx_key() {
-            self.registry.get_mut(next_key).on_focus(FocusOpts::default());
+            self.registry
+                .get_mut(next_key)
+                .on_focus(FocusOpts::default());
         }
     }
 
@@ -119,19 +121,15 @@ impl ContextManager {
 
     /// Returns a display string for the current focus state (used by the header).
     pub fn mode_display(&self) -> &'static str {
-        match self.stack.last() {
-            Some(StackEntry::Fullscreen(ContextKey::Login)) => "Login",
-            Some(StackEntry::Fullscreen(ContextKey::Recovery)) => "Recovery",
-            Some(StackEntry::Overlay(ContextKey::MessageActions)) => "Message Actions",
-            Some(StackEntry::Overlay(ContextKey::CreateRoom)) => "Create Room",
-            Some(StackEntry::Overlay(ContextKey::ConfirmDelete)) => "Confirm Delete",
-            Some(StackEntry::MainScreen) => match self.focused_main_panel {
-                ContextKey::RoomList => "Rooms",
-                ContextKey::MessageList => "Messages",
-                ContextKey::MessageInput => "Input",
-                _ => "Session",
-            },
-            _ => "",
+        let Some(stack_top) = self.stack.last() else {
+            return "";
+        };
+
+        match stack_top {
+            StackEntry::MainScreen => self.registry.get(self.focused_main_panel).title(),
+            StackEntry::Fullscreen(key) | StackEntry::Overlay(key) => {
+                self.registry.get(*key).title()
+            }
         }
     }
 }

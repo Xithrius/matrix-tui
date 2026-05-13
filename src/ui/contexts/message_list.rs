@@ -40,6 +40,10 @@ impl MessageListContext {
 }
 
 impl Context for MessageListContext {
+    fn title(&self) -> &'static str {
+        "Messages"
+    }
+
     fn keybindings(&self) -> Vec<Keybinding> {
         vec![
             Keybinding::new(
