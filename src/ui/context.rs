@@ -72,12 +72,12 @@ pub trait Context {
     fn key(&self) -> ContextKey;
     fn view(&self) -> ViewName;
 
-    /// True if this context occupies the full terminal, hiding static panels.
+    /// True if this context occupies the full terminal, hiding main screen panels.
     fn is_fullscreen(&self) -> bool {
         false
     }
 
-    /// True if this context floats above the static panel layer.
+    /// True if this context floats above the main screen panel layer.
     fn is_overlay(&self) -> bool {
         false
     }
