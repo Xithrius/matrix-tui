@@ -103,7 +103,7 @@ impl UiManager {
 
                 self.status_line.draw(frame, status_area);
             }
-            Some(StackEntry::Static | StackEntry::Overlay(_)) => {
+            Some(StackEntry::MainScreen | StackEntry::Overlay(_)) => {
                 let [header_area, content_area, status_area] = Layout::vertical([
                     Constraint::Length(1),
                     Constraint::Percentage(100),

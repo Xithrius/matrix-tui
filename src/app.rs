@@ -10,7 +10,7 @@ use crate::{
     config::CoreConfig,
     events::{Event, EventHandler},
     matrix::{event::MatrixAction, handler::MatrixHandler},
-    ui::{action::KeyEventResult, ui::UiManager},
+    ui::{action::KeyEventResult, ui_manager::UiManager},
 };
 
 pub struct App {
