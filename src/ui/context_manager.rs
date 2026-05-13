@@ -101,7 +101,7 @@ impl ContextManager {
 
     /// Switch which main screen panel is focused without touching the stack.
     /// No-op if the top of the stack is not the `MainScreen` layer.
-    pub fn activate_main_panel(&mut self, key: ContextKey, registry: &mut ContextRegistry) {
+    pub fn activate_main_screen(&mut self, key: ContextKey, registry: &mut ContextRegistry) {
         if !matches!(self.stack.last(), Some(StackEntry::MainScreen)) {
             return;
         }

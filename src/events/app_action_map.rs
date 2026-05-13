@@ -7,7 +7,7 @@ use crate::{
     ui::{
         action::{Action, FocusOpts},
         context::ContextKey,
-        context_manager::{cycle_static_backward, cycle_static_forward},
+        context_manager::{cycle_main_screen_backward, cycle_main_screen_forward},
         widgets::status_line::Status,
     },
 };
@@ -41,30 +41,34 @@ impl App {
             // --- Panel focus cycling ---
             Action::CycleFocusForward => {
                 if let Some(current) = self.ui.ctx_mgr.focused_ctx_key() {
-                    let next = cycle_static_forward(current);
-                    self.ui.ctx_mgr.activate_static(next, &mut self.ui.registry);
+                    let next = cycle_main_screen_forward(current);
+                    self.ui
+                        .ctx_mgr
+                        .activate_main_screen(next, &mut self.ui.registry);
                 }
             }
             Action::CycleFocusBackward => {
                 if let Some(current) = self.ui.ctx_mgr.focused_ctx_key() {
-                    let prev = cycle_static_backward(current);
-                    self.ui.ctx_mgr.activate_static(prev, &mut self.ui.registry);
+                    let prev = cycle_main_screen_backward(current);
+                    self.ui
+                        .ctx_mgr
+                        .activate_main_screen(prev, &mut self.ui.registry);
                 }
             }
             Action::FocusSidebar => {
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::Sidebar, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::Sidebar, &mut self.ui.registry);
             }
             Action::FocusMessageList => {
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::MessageList, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::MessageList, &mut self.ui.registry);
             }
             Action::FocusMessageInput => {
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::MessageInput, &mut self.ui.registry);
             }
 
             // --- Messaging ---
@@ -100,7 +104,7 @@ impl App {
                 self.ui.ctx_mgr.pop(&mut self.ui.registry);
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::MessageInput, &mut self.ui.registry);
             }
             Action::EditMessage(idx) => {
                 // Note: editing by index only; full edit support requires message IDs
@@ -108,7 +112,7 @@ impl App {
                 self.ui.ctx_mgr.pop(&mut self.ui.registry);
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::MessageInput, &mut self.ui.registry);
             }
             Action::DeleteMessage(idx) => {
                 self.ui.ctx_mgr.push(
@@ -138,7 +142,7 @@ impl App {
                 self.ui.registry.message_list.set_active_room(&id);
                 self.ui
                     .ctx_mgr
-                    .activate_static(ContextKey::MessageInput, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::MessageInput, &mut self.ui.registry);
                 // Request messages for the newly selected room
                 self.matrix_tx
                     .send(MatrixAction::GetRoomMessages(id))
