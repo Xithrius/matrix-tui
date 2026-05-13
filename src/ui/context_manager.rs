@@ -124,7 +124,7 @@ impl ContextManager {
             Some(StackEntry::Overlay(ContextKey::CreateRoom)) => "Create Room",
             Some(StackEntry::Overlay(ContextKey::ConfirmDelete)) => "Confirm Delete",
             Some(StackEntry::MainScreen) => match self.focused_main_panel {
-                ContextKey::Sidebar => "Rooms",
+                ContextKey::RoomList => "Rooms",
                 ContextKey::MessageList => "Messages",
                 ContextKey::MessageInput => "Input",
                 _ => "Session",
@@ -138,7 +138,7 @@ impl ContextManager {
 const MAIN_SCREEN_CYCLE_ORDER: &[ContextKey] = &[
     ContextKey::MessageInput,
     ContextKey::MessageList,
-    ContextKey::Sidebar,
+    ContextKey::RoomList,
 ];
 
 pub fn cycle_main_screen_forward(current: ContextKey) -> ContextKey {

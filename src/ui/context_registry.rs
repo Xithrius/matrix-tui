@@ -39,7 +39,7 @@ impl ContextRegistry {
         match key {
             ContextKey::Login => &self.login,
             ContextKey::Recovery => &self.recovery,
-            ContextKey::Sidebar => &self.sidebar,
+            ContextKey::RoomList => &self.sidebar,
             ContextKey::MessageList => &self.message_list,
             ContextKey::MessageInput => &self.message_input,
             ContextKey::MessageActions => &self.message_actions,
@@ -52,7 +52,7 @@ impl ContextRegistry {
         match key {
             ContextKey::Login => &mut self.login,
             ContextKey::Recovery => &mut self.recovery,
-            ContextKey::Sidebar => &mut self.sidebar,
+            ContextKey::RoomList => &mut self.sidebar,
             ContextKey::MessageList => &mut self.message_list,
             ContextKey::MessageInput => &mut self.message_input,
             ContextKey::MessageActions => &mut self.message_actions,

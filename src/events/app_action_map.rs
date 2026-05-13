@@ -58,7 +58,7 @@ impl App {
             Action::FocusSidebar => {
                 self.ui
                     .ctx_mgr
-                    .activate_main_screen(ContextKey::Sidebar, &mut self.ui.registry);
+                    .activate_main_screen(ContextKey::RoomList, &mut self.ui.registry);
             }
             Action::FocusMessageList => {
                 self.ui

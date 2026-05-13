@@ -12,7 +12,7 @@ pub enum ContextKey {
     Login,
     Recovery,
     // MainScreen panels (always visible during a session)
-    Sidebar,
+    RoomList,
     MessageList,
     MessageInput,
     // Overlay contexts
