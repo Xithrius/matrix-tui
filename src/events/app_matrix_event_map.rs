@@ -5,6 +5,7 @@ use crate::{
     matrix::event::{MatrixAction, MatrixEvent},
     ui::widgets::status_line::Status,
 };
+
 impl App {
     #[allow(clippy::too_many_lines)]
     pub async fn handle_matrix_event(&mut self, event: MatrixEvent) -> Result<()> {
