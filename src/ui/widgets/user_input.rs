@@ -1,23 +1,24 @@
 use std::convert::Into;
 
-use color_eyre::Result;
 use rustyline::{
     At, Word,
     line_buffer::{self, ChangeListener, DeleteListener, LineBuffer},
 };
 use tui::{
+    Frame,
     crossterm::event::{KeyCode, KeyEvent, KeyModifiers},
+    layout::Rect,
     prelude::*,
     widgets::{Block, BorderType, Paragraph},
 };
 use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthStr;
 
-use crate::ui::component::Component;
+use crate::ui::action::KeyEventResult;
 
 const LINE_BUFFER_CAPACITY: usize = 1024;
 
-/// Acquiring the horizontal position of the cursor so it can be rendered visually.
+/// Returns the visual (column) position of the cursor within the line buffer.
 pub fn get_cursor_position(line_buffer: &LineBuffer) -> usize {
     line_buffer
         .as_str()
@@ -42,12 +43,11 @@ impl DeleteListener for InputListener {
 
 pub struct UserInputWidget {
     title: Option<String>,
+    /// Whether to draw a visible cursor at draw time.
     focused: bool,
 
     input_listener: InputListener,
     input: LineBuffer,
-    /// The input changed on the last keystroke.
-    input_changed: bool,
 }
 
 impl UserInputWidget {
@@ -55,10 +55,8 @@ impl UserInputWidget {
         Self {
             title: title.map(Into::into),
             focused: false,
-
             input_listener: InputListener,
             input: LineBuffer::with_capacity(LINE_BUFFER_CAPACITY),
-            input_changed: false,
         }
     }
 
@@ -83,20 +81,7 @@ impl UserInputWidget {
         self.input.as_str()
     }
 
-    #[allow(dead_code)]
-    pub const fn input_changed(&self) -> bool {
-        self.input_changed
-    }
-}
-
-impl Component for UserInputWidget {
-    async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        if !self.is_focused() {
-            return Ok(());
-        }
-
-        let previous_input = self.input.to_string();
-
+    pub fn handle_key(&mut self, key: KeyEvent) -> KeyEventResult {
         match (
             key.code,
             key.modifiers.contains(KeyModifiers::CONTROL),
@@ -108,57 +93,66 @@ impl Component for UserInputWidget {
                 } else {
                     self.input.move_forward(1);
                 }
+                KeyEventResult::Consumed
             }
             (KeyCode::Left, false, _) | (KeyCode::Char('b'), true, false) => {
                 self.input.move_backward(1);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('a'), true, false) => {
                 self.input.move_home();
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('e'), true, false) => {
                 self.input.move_end();
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('f'), false, true) | (KeyCode::Right, true, false) => {
                 self.input.move_to_next_word(At::AfterEnd, Word::Emacs, 1);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('b'), false, true) | (KeyCode::Left, true, false) => {
                 self.input.move_to_prev_word(Word::Emacs, 1);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('t'), true, false) => {
                 self.input.transpose_chars(&mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('t'), false, true) => {
                 self.input.transpose_words(1, &mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('u'), true, false) => {
                 self.input.discard_line(&mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('k'), true, false) => {
                 self.input.kill_line(&mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char('w'), true, false) => {
                 self.input
                     .delete_prev_word(Word::Emacs, 1, &mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Delete, _, _) | (KeyCode::Char('d'), true, false) => {
                 self.input.delete(1, &mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Backspace, _, _) => {
                 self.input.backspace(1, &mut self.input_listener);
+                KeyEventResult::Consumed
             }
             (KeyCode::Char(c), false, false) => {
                 self.input.insert(c, 1, &mut self.input_listener);
+                KeyEventResult::Consumed
             }
-            _ => {}
+            _ => KeyEventResult::NotConsumed,
         }
-
-        let current_input = self.input.as_str();
-        self.input_changed = previous_input != current_input;
-
-        Ok(())
     }
 
-    fn draw(&mut self, frame: &mut Frame, area: Rect) {
+    pub fn draw(&self, frame: &mut Frame, area: Rect) {
         let input = Paragraph::new(self.input.as_str()).block(
             Block::bordered()
                 .title(self.title.clone().unwrap_or_default())
